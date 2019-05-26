@@ -1,0 +1,5 @@
+kaggle==1.5.3
+numpy==1.16.2
+pandas==0.24.2
+tensorboard==1.13.1
+tensorflow==1.13.1

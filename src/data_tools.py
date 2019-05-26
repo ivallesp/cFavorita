@@ -8,7 +8,7 @@ import random
 import numpy as np
 from src.common_paths import get_data_path
 from src.general_utilities import batching
-from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats
+from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats, embedding_sizes
 
 
 def cartesian_pair(df1, df2, **kwargs):
@@ -286,7 +286,15 @@ class MasterDataGetter(DataGetter):
         return df
 
 
-def get_batcher_generator(data_cube, batch_size, colnames, shuffle_every_epoch=True,
+def get_categorical_cardinalities(data_cube, categorical_feats, colnames):
+    categorical_feats_idx = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames, 1))[0]
+    categorical_cardinalities = []
+    for cat_var in categorical_feats_idx:
+        categorical_cardinalities.append(int(np.max(data_cube[:, :, cat_var])))
+    return categorical_cardinalities
+
+
+def get_batcher_generator(data_cube, model, batch_size, colnames, shuffle_every_epoch=True,
                           history_window_size=1000, prediction_window_size=30):
     numeric_feats_idx = np.where(np.expand_dims(numeric_feats, 0) == np.expand_dims(colnames, 1))[0]
     categorical_feats_idx = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames, 1))[0]
@@ -299,10 +307,6 @@ def get_batcher_generator(data_cube, batch_size, colnames, shuffle_every_epoch=T
         np.random.shuffle(data_cube)
 
     time_axis_size = data_cube.shape[1]
-
-    categorical_cardinalities = []
-    for cat_var in categorical_feats_idx:
-        categorical_cardinalities.append(int(np.max(data_cube[:, :, cat_var])))
 
     for batch in batching(list_of_iterables=data_cube, n=batch_size, return_incomplete_batches=False):
         assert (len(batch) == 1 and type(batch) == list)
@@ -328,21 +332,14 @@ def get_batcher_generator(data_cube, batch_size, colnames, shuffle_every_epoch=T
             feat_std[feat_std == 0] = 1  # Avoid infinite
             numeric_batch[:, :, [feat_idx]] = (numeric_batch[:, :, [feat_idx]] - feat_mean)/feat_std
 
-        yield numeric_batch, categorical_batch, target_batch
+        # Prepare tensorflow batch
+        tf_batch = dict()
+        for cat_i in range(categorical_batch.shape[2]):
+            tf_batch[getattr(model.ph, "cat_{}".format(cat_i))] = categorical_batch[:, :, [cat_i]]
 
+        tf_batch[model.ph.numerical_feats] = numeric_batch
+        tf_batch[model.ph.target] = target_batch
 
-if __name__ == "__main__":
-    fl = FactoryLoader()
-    df = fl.load("master", sample=True)
-    df = df.sort_values(by=["store_nbr", "item_nbr", "date"], ascending=True)
-    print("Data sorted successfully!"); gc.collect()
-    colnames = df.columns.values
-    shape = df.store_nbr.nunique()*df.item_nbr.nunique(), df.date.nunique(), df.shape[1]
-    df = df.to_numpy()
-    print("Data transformed to numpy successfully!"); gc.collect()
-    df = df.reshape(shape)
-    print("Data reshaped successfully!"); gc.collect()
+        yield tf_batch
 
-
-    batcher = get_batcher_generator(data_cube=df, batch_size=128, colnames=colnames)
 
