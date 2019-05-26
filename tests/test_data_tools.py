@@ -6,12 +6,12 @@ class TestDataFactory(unittest.TestCase):
     def test_items_table_shape(self):
         fl = FactoryLoader()
         df = fl.load("items")
-        self.assertEqual((4100, 35), df.shape)
+        self.assertEqual((4100, 3), df.shape)
 
     def test_holidays_events_table_shape(self):
         fl = FactoryLoader()
         df = fl.load("holidays_events")
-        self.assertEqual((312, 36), df.shape)
+        self.assertEqual((312, 6), df.shape)
 
     def test_oil_table_shape(self):
         fl = FactoryLoader()
@@ -21,7 +21,7 @@ class TestDataFactory(unittest.TestCase):
     def test_stores_table_shape(self):
         fl = FactoryLoader()
         df = fl.load("stores")
-        self.assertEqual((54, 61), df.shape)
+        self.assertEqual((54, 5), df.shape)
 
     def test_test_table_shape(self):
         fl = FactoryLoader()

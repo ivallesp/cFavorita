@@ -3,8 +3,12 @@ import pandas as pd
 import sys
 import inspect
 import gc
+import random
 
+import numpy as np
 from src.common_paths import get_data_path
+from src.general_utilities import batching
+from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats
 
 
 def cartesian_pair(df1, df2, **kwargs):
@@ -118,7 +122,9 @@ class HolidaysEventsDataGetter(DataGetter):
         df[["type", "locale", "local_name"]] = (df[["type", "locale", "locale_name"]]
                                                 .apply(lambda col: col.str.replace(" ", "_").str.lower()))
         # Dummify the categorical vars
-        df = pd.get_dummies(df, columns=["type", "locale", "locale_name"])
+        #df = pd.get_dummies(df, columns=["type", "locale", "locale_name"])
+        for var in ["type", "locale", "locale_name"]:
+            df[var] = pd.Categorical(df[var]).codes
 
         # Aggregate at date level
         df = (df.assign(count=1)
@@ -126,6 +132,9 @@ class HolidaysEventsDataGetter(DataGetter):
                 .groupby("date").sum().astype(int)
                 .rename(columns=lambda x: "holidays_"+x)  # Prefix with "holiday_"
                 .reset_index())
+
+        df["holidays_count"] = (df["holidays_count"] - 2) / 2  # Center and scale
+        df["holidays_transferred"] = (df["holidays_transferred"] - 0.5) * 2  # Center and scale
         return df
 
 
@@ -143,8 +152,13 @@ class ItemsDataGetter(DataGetter):
         # Add the prefix "store_" to the variables
         df = df.rename(columns={"family": "item_family", "perishable": "item_perishable"})
 
+        # Center and scale
+        df["item_perishable"] = (df["item_perishable"] - 0.5) * 2
+
         # Dummify the categorical vars
-        df = pd.get_dummies(df, columns=["item_family"])
+        #df = pd.get_dummies(df, columns=["item_family"])
+        for var in ["item_family"]:
+            df[var] = pd.Categorical(df[var]).codes
 
         return df
 
@@ -171,7 +185,10 @@ class StoresDataGetter(DataGetter):
         df = df.rename(columns={"city": "store_city", "state": "store_state", "type": "store_type",
                                 "cluster": "store_cluster"})
         # Dummify the categorical vars
-        df = pd.get_dummies(df, columns=["store_city", "store_state", "store_type", "store_cluster"])
+        #df = pd.get_dummies(df, columns=["store_city", "store_state", "store_type", "store_cluster"])
+        for var in ["store_city", "store_state", "store_type", "store_cluster"]:
+            df[var] = pd.Categorical(df[var]).codes
+
 
         return df
 
@@ -189,6 +206,7 @@ class TrainDataGetter(DataGetter):
     keys = ["date", "store_nbr", "item_nbr"]
 
     def process(self, df):
+        df["onpromotion"] = (df["onpromotion"] - 0.5) * 2
         return df
 
 
@@ -259,8 +277,72 @@ class MasterDataGetter(DataGetter):
     def process(self, df):
         df["onpromotion"] = df.onpromotion.astype(float)
         df = df.fillna(0)
-        df["year"] = df["date"].str[0:4].astype(int) - 2013
-        df["month"] = df["date"].str[5:7].astype(int)
-        df["day"] = df["date"].str[8:].astype(int)
-        df["dayofweek"] = pd.to_datetime(df["date"], format="%Y-%m-%d").dt.dayofweek.astype(int)
+        df["year"] = (df["date"].str[0:4].astype(int) - 2015)/2  # Center and scale
+        df["month"] = (df["date"].str[5:7].astype(int)-6.5)/5.5  # Center and scale
+        df["day"] = (df["date"].str[8:].astype(int)-16)/15  # Center and scale
+        df["dayofweek"] = (pd.to_datetime(df["date"], format="%Y-%m-%d").dt.dayofweek-3)/3  # Center and scale
+        for var in ["store_nbr", "item_nbr"]:
+            df[var] = pd.Categorical(df[var]).codes
         return df
+
+
+def get_batcher_generator(data_cube, batch_size, colnames, shuffle_every_epoch=True,
+                          history_window_size=1000, prediction_window_size=30):
+    numeric_feats_idx = np.where(np.expand_dims(numeric_feats, 0) == np.expand_dims(colnames, 1))[0]
+    categorical_feats_idx = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames, 1))[0]
+    batch_time_normalizable_feats_idx = np.where(np.expand_dims(batch_time_normalizable_feats, 0) == np.expand_dims(colnames, 1))[0]
+    target_idx = np.where(target == colnames)[0]
+    numeric_feats_norm_idx = \
+    np.where(np.expand_dims(batch_time_normalizable_feats_idx, 0) == np.expand_dims(numeric_feats_idx, 1))[0]
+
+    if shuffle_every_epoch:
+        np.random.shuffle(data_cube)
+
+    time_axis_size = data_cube.shape[1]
+
+    categorical_cardinalities = []
+    for cat_var in categorical_feats_idx:
+        categorical_cardinalities.append(int(np.max(data_cube[:, :, cat_var])))
+
+    for batch in batching(list_of_iterables=data_cube, n=batch_size, return_incomplete_batches=False):
+        assert (len(batch) == 1 and type(batch) == list)
+        batch = batch[0]
+        t0 = random.randint(0, time_axis_size-prediction_window_size-history_window_size)
+        t1 = t0 + history_window_size
+        t2 = t1 + prediction_window_size
+        numeric_batch = batch[:, t0:t1, numeric_feats_idx].astype(float)
+        categorical_batch = batch[:, t0:t1, categorical_feats_idx].astype(int)
+        target_batch = batch[:, t1:t2, target_idx].astype(float)
+
+        # In batch normalization
+        target_mean = batch[:, t0:t1, target_idx].astype(float).mean(axis=1, keepdims=True)
+        target_std = batch[:, t0:t1, target_idx].astype(float).std(axis=1, keepdims=True)
+        target_std[target_std == 0] = 1  # Avoid infinite
+
+        target_batch = (target_batch-target_mean)/target_std
+
+        # Calculate the indices over the numeric batch
+        for feat_idx in numeric_feats_norm_idx:
+            feat_mean = numeric_batch[:, :, [feat_idx]].astype(float).mean(axis=1, keepdims=True)
+            feat_std = numeric_batch[:, :, [feat_idx]].astype(float).std(axis=1, keepdims=True)
+            feat_std[feat_std == 0] = 1  # Avoid infinite
+            numeric_batch[:, :, [feat_idx]] = (numeric_batch[:, :, [feat_idx]] - feat_mean)/feat_std
+
+        yield numeric_batch, categorical_batch, target_batch
+
+
+if __name__ == "__main__":
+    fl = FactoryLoader()
+    df = fl.load("master", sample=True)
+    df = df.sort_values(by=["store_nbr", "item_nbr", "date"], ascending=True)
+    print("Data sorted successfully!"); gc.collect()
+    colnames = df.columns.values
+    shape = df.store_nbr.nunique()*df.item_nbr.nunique(), df.date.nunique(), df.shape[1]
+    df = df.to_numpy()
+    print("Data transformed to numpy successfully!"); gc.collect()
+    df = df.reshape(shape)
+    print("Data reshaped successfully!"); gc.collect()
+
+
+    batcher = get_batcher_generator(data_cube=df, batch_size=128, colnames=colnames)
+
