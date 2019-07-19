@@ -40,9 +40,18 @@ if __name__ == "__main__":
     sess = start_tensorflow_session()
     sw = get_summary_writer(sess, get_tensorboard_path(), "CF", "V0")
     sess.run(tf.global_variables_initializer())
+    train_df = df[:,:1000]
+    dev_df = df[:, (1000-380):(1000+60)]
 
     for epoch in range(100):
-        batcher = get_batcher_generator(data_cube=df, model=model, batch_size=128, colnames=colnames)
+        batcher = get_batcher_generator(data_cube=train_df, model=model, batch_size=128, colnames=colnames,
+                                        history_window_size=380, prediction_window_size=30)
+        batcher_test = get_batcher_generator(data_cube=dev_df, model=model, batch_size=128, colnames=colnames,
+                                             shuffle_every_epoch=False,  history_window_size=380, prediction_window_size=30)
+
+        for test_batch in batcher_test:
+
+
         for batch in batcher:
             c += 1
             loss, _, train_summary = sess.run([model.losses.loss_mse,
