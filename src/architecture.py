@@ -57,13 +57,13 @@ class Seq2Seq:
             features = tf.concat([self.placeholders.numerical_feats] + embedded_repr, axis=2)
 
             # Encoder
-            cell = tf.nn.rnn_cell.LSTMCell(512, name="encoder_cell")
+            cell = tf.keras.layers.LSTMCell(512, name="encoder_cell")
             _, states = tf.nn.dynamic_rnn(cell, features, dtype=tf.float32)
 
             # Decoder
             go = tf.concat([tf.ones([tf.shape(self.placeholders.target)[0], 1, 512]),
                             tf.zeros([tf.shape(self.placeholders.target)[0], self.n_output_ts-1, 512])], axis=1)
-            cell = tf.nn.rnn_cell.LSTMCell(512, name="decoder_cell")
+            cell = tf.keras.layers.LSTMCell(512, name="decoder_cell")
             output, _ = tf.nn.dynamic_rnn(cell, go, dtype=tf.float32)
 
             output = tf.reshape(output, [-1, 512])
@@ -84,5 +84,8 @@ class Seq2Seq:
 
     def define_summaries(self):
         with tf.variable_scope("Summaries"):
-            pass
-        return {}
+            train_final_scalar_probes = {"loss_mse": tf.squeeze(self.losses.loss_mse)}
+            final_performance_scalar = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
+                                        for k, v in train_final_scalar_probes.items()]
+
+        return {"scalar_train_performance": tf.summary.merge(final_performance_scalar)}

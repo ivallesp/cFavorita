@@ -1,6 +1,7 @@
 from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities
 from src.constants import numeric_feats, categorical_feats, embedding_sizes
-
+from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
+from src.common_paths import get_tensorboard_path
 import os
 import gc
 
@@ -14,7 +15,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 if __name__ == "__main__":
 
     fl = FactoryLoader()
-    df = fl.load("master", sample=False)
+    df = fl.load("master", sample=True)
 
     print("Data sorted successfully!")
     colnames = df.columns.values
@@ -27,6 +28,7 @@ if __name__ == "__main__":
     gc.collect()
     print("Data reshaped successfully!")
 
+    c = 0
 
     categorical_cardinalities = get_categorical_cardinalities(data_cube=df, categorical_feats=categorical_feats,
                                                               colnames=colnames)
@@ -35,10 +37,19 @@ if __name__ == "__main__":
                     embedding_sizes=embedding_sizes, n_output_ts=30)
     print("Model built successfully!")
 
-    batcher = get_batcher_generator(data_cube=df, model=model, batch_size=128, colnames=colnames)
+    sess = start_tensorflow_session()
+    sw = get_summary_writer(sess, get_tensorboard_path(), "CF", "V0")
+    sess.run(tf.global_variables_initializer())
 
-    for batch in batcher:
-        sess = tf.Session()
-        sess.run(tf.global_variables_initializer())
-        loss, _ = sess.run([model.losses.loss_mse, model.optimizers.op], batch)
-        print(loss)
+    for epoch in range(100):
+        batcher = get_batcher_generator(data_cube=df, model=model, batch_size=128, colnames=colnames)
+        for batch in batcher:
+            c += 1
+            loss, _, train_summary = sess.run([model.losses.loss_mse,
+                                               model.optimizers.op,
+                                               model.summ.scalar_train_performance], batch)
+            sw.add_summary(train_summary, c)
+            print(loss)
+
+    # TODO: Implement TRAIN Mape in tensorboard
+    # TODO: Implement TEST Mape in tensorboard

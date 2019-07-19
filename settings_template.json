@@ -1,3 +1,4 @@
 {
-  "paths": {"data":  "data"}
+  "paths": {"data":  "path to the data folder",
+            "tensorboard": "path to a common tensorboard folder"}
 }

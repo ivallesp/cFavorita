@@ -70,3 +70,14 @@ def get_data_path():
     """
     config = get_general_config()
     return config["paths"]["data"]
+
+
+@_is_output_path
+def get_tensorboard_path():
+    """
+    Generates the path where the tensorboard logs will be stored
+    :return: data folder path (str)
+    """
+    config = get_general_config()
+    return config["paths"]["tensorboard"]
+
