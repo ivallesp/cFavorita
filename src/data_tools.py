@@ -135,6 +135,7 @@ class HolidaysEventsDataGetter(DataGetter):
 
         df["holidays_count"] = (df["holidays_count"] - 2) / 2  # Center and scale
         df["holidays_transferred"] = (df["holidays_transferred"] - 0.5) * 2  # Center and scale
+        df["date"] = df.date.str.replace("-", "").astype(int)
         return df
 
 
@@ -169,6 +170,7 @@ class OilDataGetter(DataGetter):
 
     def process(self, df):
         df = df.dropna(axis=0)
+        df["date"] = df.date.str.replace("-", "").astype(int)
         return df
 
 
@@ -207,6 +209,7 @@ class TrainDataGetter(DataGetter):
 
     def process(self, df):
         df["onpromotion"] = (df["onpromotion"] - 0.5) * 2
+        df["date"] = df.date.str.replace("-", "").astype(int)
         return df
 
 
@@ -215,6 +218,7 @@ class TransactionsDataGetter(DataGetter):
     keys = ["date", "store_nbr"]
 
     def process(self, df):
+        df["date"] = df.date.str.replace("-", "").astype(int)
         return df
 
 
@@ -321,6 +325,7 @@ def get_batcher_generator(data_cube, model, batch_size, colnames, shuffle_every_
         # In batch normalization
         target_mean = batch[:, t0:t1, target_idx].astype(float).mean(axis=1, keepdims=True)
         target_std = batch[:, t0:t1, target_idx].astype(float).std(axis=1, keepdims=True)
+
         target_std[target_std == 0] = 1  # Avoid infinite
 
         target_batch = (target_batch-target_mean)/target_std

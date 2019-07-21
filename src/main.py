@@ -49,7 +49,7 @@ if __name__ == "__main__":
         batcher_test = get_batcher_generator(data_cube=dev_df, model=model, batch_size=128, colnames=colnames,
                                              shuffle_every_epoch=False,  history_window_size=380, prediction_window_size=30)
 
-        for test_batch in batcher_test:
+        #for test_batch in batcher_test:
 
 
         for batch in batcher:
