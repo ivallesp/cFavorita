@@ -208,7 +208,7 @@ class TrainDataGetter(DataGetter):
     keys = ["date", "store_nbr", "item_nbr"]
 
     def process(self, df):
-        df["onpromotion"] = (df["onpromotion"] - 0.5) * 2
+        df["onpromotion"] = ((df["onpromotion"] - 0.5) * 2).astype(float)
         df["date"] = df.date.str.replace("-", "").astype(int)
         return df
 
