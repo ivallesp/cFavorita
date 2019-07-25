@@ -279,8 +279,9 @@ class MasterDataGetter(DataGetter):
         return df
 
     def process(self, df):
-        df["onpromotion"] = df.onpromotion.astype(float)
         df = df.fillna(0)
+        df, _ = reduce_mem_usage(df)
+        df["onpromotion"] = df.onpromotion.astype(float)
         df["year"] = (df["date"].astype("str").str[0:4].astype(int) - 2015)/2  # Center and scale
         df["month"] = (df["date"].astype("str").str[5:7].astype(int)-6.5)/5.5  # Center and scale
         df["day"] = (df["date"].astype("str").str[8:].astype(int)-16)/15  # Center and scale
@@ -325,6 +326,8 @@ class MasterTimelessGetter(DataGetter):
         print("Items merged successfully!", df.shape)
 
     def process(self, df):
+        df = df.fillna(0)
+        df = reduce_mem_usage(df)
         return df
 
 
