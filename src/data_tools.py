@@ -407,6 +407,7 @@ class MasterTimelessGetter(DataGetter):
         df = df.merge(df_items, on=self.fl_items.getter.keys, how="left")
         del df_items; gc.collect()
         print("Items merged successfully!", df.shape)
+        return df
 
     def process(self, df):
         df = df.fillna(0)
