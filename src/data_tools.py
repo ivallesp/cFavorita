@@ -360,12 +360,16 @@ class MasterDataGetter(DataGetter):
         df = df.fillna(0)
         print("NA Data filled with zeros successfully! Reducing the size of the dataset...")
         df = reduce_mem_usage(df)
-        df["onpromotion"] = df.onpromotion.astype(float)
+        print("Calculating year var...")
         df["year"] = (df["date"].astype("str").str[0:4].astype(int) - 2015)/2  # Center and scale
-        df["month"] = (df["date"].astype("str").str[5:7].astype(int)-6.5)/5.5  # Center and scale
-        df["day"] = (df["date"].astype("str").str[8:].astype(int)-16)/15  # Center and scale
+        print("Calculating month var...")
+        df["month"] = (df["date"].astype("str").str[4:6].astype(int)-6.5)/5.5  # Center and scale
+        print("Calculating day var...")
+        df["day"] = (df["date"].astype("str").str[6:].astype(int)-16)/15  # Center and scale
+        print("Calculating day of week var...")
         df["dayofweek"] = (pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek-3)/3  # Center and scale
         for var in ["store_nbr", "item_nbr"]:
+            print("Calculating {} categorical var...".format(var))
             df[var] = pd.Categorical(df[var]).codes
         return df
 
