@@ -327,6 +327,7 @@ class MasterDataGetter(DataGetter):
 
         # Performing and merging Cartesian
         df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
+        df_cartesian = df_cartesian.sort_values(by=["store_nbr", "item_nbr", "date"], ascending=True)
         df = df_cartesian.merge(df_main, on=["date", "store_nbr", "item_nbr"], how="left")
         del df_main, df_cartesian
 
@@ -396,6 +397,7 @@ class MasterTimelessGetter(DataGetter):
         # Performing and merging Cartesian
         df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
         df = df_cartesian[["store_nbr", "item_nbr"]].drop_duplicates()
+        df = df.sort_values(by=["store_nbr", "item_nbr"], ascending=True)
         del df_main, df_cartesian; gc.collect()
 
         # Merge stores
