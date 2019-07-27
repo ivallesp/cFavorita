@@ -9,29 +9,32 @@ import tensorflow as tf
 from src.architecture import Seq2Seq
 
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+#os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 if __name__ == "__main__":
 
-    fl = FactoryLoader()
-    df = fl.load("master", sample=True)
+    df_master_time = FactoryLoader().load("master")
+    df_master_timeless = FactoryLoader().load("master_timeless")
 
     print("Data sorted successfully!")
-    colnames = df.columns.values
-    shape = df.store_nbr.nunique()*df.item_nbr.nunique(), df.date.nunique(), df.shape[1]
+    colnames_time = df_master_time.columns.values
+    shape = df_master_time.store_nbr.nunique()*df_master_time.item_nbr.nunique(), df_master_time.date.nunique(), df_master_time.shape[1]
     print("Data transformed to numpy successfully!")
     gc.collect()
-    df = df.to_numpy()
+    df = df_master_time.to_numpy()
     gc.collect()
     df = df.reshape(shape)
     gc.collect()
+    colnames_timeless = df_master_timeless.columns.values
+    df_timeless = df_master_timeless.to_numpy()
     print("Data reshaped successfully!")
+
 
     c = 0
 
     categorical_cardinalities = get_categorical_cardinalities(data_cube=df, categorical_feats=categorical_feats,
-                                                              colnames=colnames)
+                                                              colnames=colnames_time)
     model = Seq2Seq(n_numerical_features=len(numeric_feats),
                     categorical_cardinalities=categorical_cardinalities,
                     embedding_sizes=embedding_sizes, n_output_ts=30)
@@ -43,13 +46,15 @@ if __name__ == "__main__":
     train_df = df[:,:1000]
     dev_df = df[:, (1000-380):(1000+60)]
 
-    for epoch in range(100):
-        batcher = get_batcher_generator(data_cube=train_df, model=model, batch_size=128, colnames=colnames,
-                                        history_window_size=380, prediction_window_size=30)
-        batcher_test = get_batcher_generator(data_cube=dev_df, model=model, batch_size=128, colnames=colnames,
-                                             shuffle_every_epoch=False,  history_window_size=380, prediction_window_size=30)
 
-        #for test_batch in batcher_test:
+    for epoch in range(100):
+        batcher = get_batcher_generator(data_cube_time=train_df, data_cube_timeless=df_timeless,
+                                        model=model, batch_size=128, colnames_time=colnames_time,
+                                        history_window_size=380, prediction_window_size=30)
+        batcher_test = get_batcher_generator(data_cube_time=dev_df, data_cube_timeless=df_timeless,
+                                             model=model, batch_size=128, colnames_time=colnames_time,
+                                             history_window_size=380, prediction_window_size=30)
+
 
 
         for batch in batcher:

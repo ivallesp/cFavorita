@@ -424,29 +424,37 @@ def get_categorical_cardinalities(data_cube, categorical_feats, colnames):
     return categorical_cardinalities
 
 
-def get_batcher_generator(data_cube, model, batch_size, colnames, shuffle_every_epoch=True,
+def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size, colnames_time, colnames_timeless,
                           history_window_size=1000, prediction_window_size=30):
-    numeric_feats_idx = np.where(np.expand_dims(numeric_feats, 0) == np.expand_dims(colnames, 1))[0]
-    categorical_feats_idx = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames, 1))[0]
-    batch_time_normalizable_feats_idx = np.where(np.expand_dims(batch_time_normalizable_feats, 0) == np.expand_dims(colnames, 1))[0]
-    target_idx = np.where(target == colnames)[0]
+    num_idx_time = np.where(np.expand_dims(numeric_feats == np.expand_dims(colnames_time, 1), 1))[0]
+    cat_idx_time = np.where(np.squeeze(np.setdiff1d(categorical_feats, ["store_nbr", "item_nbr"]))[:,None] == np.squeeze(colnames_time)[None])[1]
+    batch_time_normalizable_feats_idx = np.where(np.expand_dims(batch_time_normalizable_feats, 0) == np.expand_dims(colnames_time, 1))[0]
+    target_idx = np.where(target == colnames_time)[0]
     numeric_feats_norm_idx = \
-    np.where(np.expand_dims(batch_time_normalizable_feats_idx, 0) == np.expand_dims(numeric_feats_idx, 1))[0]
+    np.where(np.expand_dims(batch_time_normalizable_feats_idx, 0) == np.expand_dims(num_idx_time, 1))[0]
+    num_idx_timeless = np.where(np.expand_dims(numeric_feats, 0) == np.expand_dims(colnames_timeless, 1))[0]
+    cat_idx_timeless = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames_timeless, 1))[0]
 
-    if shuffle_every_epoch:
-        np.random.shuffle(data_cube)
+    time_axis_size = data_cube_time.shape[1]
+    batcher =  batching(list_of_iterables=[data_cube_time, data_cube_timeless], n=batch_size,
+                                          return_incomplete_batches=False)
 
-    time_axis_size = data_cube.shape[1]
 
-    for batch in batching(list_of_iterables=data_cube, n=batch_size, return_incomplete_batches=False):
-        assert (len(batch) == 1 and type(batch) == list)
-        batch = batch[0]
+    for batch, batch_timeless in batcher:
         t0 = random.randint(0, time_axis_size-prediction_window_size-history_window_size)
         t1 = t0 + history_window_size
         t2 = t1 + prediction_window_size
-        numeric_batch = batch[:, t0:t1, numeric_feats_idx].astype(float)
-        categorical_batch = batch[:, t0:t1, categorical_feats_idx].astype(int)
+        numeric_batch = batch[:, t0:t1, num_idx_time].astype(float)
+        categorical_batch = batch[:, t0:t1, cat_idx_time].astype(int)
         target_batch = batch[:, t1:t2, target_idx].astype(float)
+
+        categorical_batch_static = batch_timeless[:, cat_idx_timeless].astype(int)[:, None, :] * \
+                                   np.ones([1, categorical_batch.shape[1], 1])
+        categorical_batch = np.concatenate([categorical_batch, categorical_batch_static], axis=-1)
+
+        numeric_batch_static = batch_timeless[:, num_idx_timeless].astype(float)[:, None, :] * \
+                                   np.ones([1, categorical_batch.shape[1], 1])
+        numeric_batch = np.concatenate([numeric_batch, numeric_batch_static], axis=-1)
 
         # In batch normalization
         target_mean = batch[:, t0:t1, target_idx].astype(float).mean(axis=1, keepdims=True)
@@ -470,5 +478,5 @@ def get_batcher_generator(data_cube, model, batch_size, colnames, shuffle_every_
 
         tf_batch[model.ph.numerical_feats] = numeric_batch
         tf_batch[model.ph.target] = target_batch
-
+        ## TODO: Implement the normalizer for static feats, if needed
         yield tf_batch
