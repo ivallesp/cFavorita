@@ -9,7 +9,7 @@ import tensorflow as tf
 from src.architecture import Seq2Seq
 
 
-#os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 if __name__ == "__main__":
