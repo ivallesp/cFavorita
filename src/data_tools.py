@@ -418,12 +418,17 @@ class MasterTimelessGetter(DataGetter):
         return df
 
 
-def get_categorical_cardinalities(data_cube, categorical_feats, colnames):
-    categorical_feats_idx = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames, 1))[0]
+def get_categorical_cardinalities(data_cube, data_cube_timeless, categorical_feats, colnames, colnames_timeless):
     categorical_cardinalities = []
-    for cat_var in categorical_feats_idx:
-        categorical_cardinalities.append(int(np.max(data_cube[:, :, cat_var])))
-    return categorical_cardinalities
+    categorical_cardinalities_static = []
+    for cat_var in categorical_feats:
+        if cat_var in colnames:
+            idx = np.where(cat_var == colnames)[0]
+            categorical_cardinalities.append(int(np.max(data_cube[:, :, idx])+1))
+        else:
+            idx = np.where(cat_var == colnames_timeless)[0]
+            categorical_cardinalities_static.append(int(np.max(data_cube_timeless[:, idx]) + 1))
+    return categorical_cardinalities+categorical_cardinalities_static
 
 
 def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size, colnames_time, colnames_timeless,
@@ -481,4 +486,6 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
         tf_batch[model.ph.numerical_feats] = numeric_batch
         tf_batch[model.ph.target] = target_batch
         ## TODO: Implement the normalizer for static feats, if needed
-        yield tf_batch
+        #if target_batch.shape[-1]==0:
+        #    1/0
+        yield tf_batch, (target_mean, target_std)

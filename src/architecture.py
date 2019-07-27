@@ -43,7 +43,9 @@ class Seq2Seq:
                                                                                       self.n_numerical_features))
 
             placeholders["target"] = tf.placeholder(dtype=tf.float32, shape=(None, self.n_output_ts, 1))
-
+            placeholders["loss_dev"] = tf.placeholder(dtype=tf.float32, shape=None, name="loss_dev_manual")
+            placeholders["mape_dev"] = tf.placeholder(dtype=tf.float32, shape=None, name="mape_dev_manual")
+            placeholders["mape_train"] = tf.placeholder(dtype=tf.float32, shape=None, name="mape_train_manual")
 
         return placeholders
 
@@ -88,4 +90,13 @@ class Seq2Seq:
             final_performance_scalar = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
                                         for k, v in train_final_scalar_probes.items()]
 
-        return {"scalar_train_performance": tf.summary.merge(final_performance_scalar)}
+            train_final_scalar_probes_manual = {"mape_train": self.placeholders.mape_train}
+            final_performance_scalar_manual = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
+                                        for k, v in train_final_scalar_probes_manual.items()]
+
+            dev_scalar_probes = {"loss_dev": self.placeholders.loss_dev,
+                                 "mape_dev": self.placeholders.mape_dev}
+            dev_performance_scalar = [tf.summary.scalar(k, v) for k, v in dev_scalar_probes.items()]
+        return {"scalar_train_performance": tf.summary.merge(final_performance_scalar),
+                "scalar_train_performance_manual":  tf.summary.merge(final_performance_scalar_manual),
+                "scalar_dev_performance": tf.summary.merge(dev_performance_scalar)}
