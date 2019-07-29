@@ -119,13 +119,13 @@ def cartesian_multiple(df, columns):
 
 
 def get_data_cube_from_df(df):
-    n_stores = df.store_nbr.nunique()
-    n_items = df.item_nbr.nunique()
-    n_timesteps = df.date.nunique()
-    n_variables = df.shape[1]
-    df = df.sort_values(by=["store_nbr", "item_nbr", "date"], ascending=True)
-    data_cube = df.values.reshape(n_stores*n_items, n_timesteps, n_variables)
-    return data_cube
+    shape = df.store_nbr.nunique() * df.item_nbr.nunique(), df.date.nunique(), df.shape[1]
+    gc.collect()
+    df = df.to_numpy()
+    gc.collect()
+    df = df.reshape(shape)
+    gc.collect()
+    return df
 
 
 class FactoryLoader:
@@ -307,16 +307,12 @@ class MasterDataGetter(DataGetter):
         self.fl_holidays = FactoryLoader()
         self.fl_oil = FactoryLoader()
         self.fl_transactions = FactoryLoader()
-        # self.fl_stores = FactoryLoader()
         self.fl_main = FactoryLoader()
-        # self.fl_items = FactoryLoader()
 
         # Data loading
         df_holidays = self.fl_holidays.load("holidays_events")
         df_oil = self.fl_oil.load("oil")
         df_transactions = self.fl_transactions.load("transactions")
-        # df_stores = self.fl_stores.load("stores")
-        # df_items = self.fl_items.load("items")
         df_main = self.fl_main.load("train")
 
         if sample:
@@ -331,20 +327,10 @@ class MasterDataGetter(DataGetter):
         df = df_cartesian.merge(df_main, on=["date", "store_nbr", "item_nbr"], how="left")
         del df_main, df_cartesian
 
-        # Merge stores
-        # df = df.merge(df_stores, on=self.fl_stores.getter.keys, how="left")
-        # del df_stores; gc.collect()
-        # print("Stores merged successfully!", df.shape)
-
         # Merge holidays
         df = df.merge(df_holidays, on=self.fl_holidays.getter.keys, how="left")
         del df_holidays; gc.collect()
         print("Holidays merged successfully!", df.shape)
-
-        # Merge items
-        # df = df.merge(df_items, on=self.fl_items.getter.keys, how="left")
-        # del df_items; gc.collect()
-        # print("Items merged successfully!", df.shape)
 
         # Merge transactions
         df = df.merge(df_transactions, on=self.fl_transactions.getter.keys, how="left")
@@ -369,9 +355,11 @@ class MasterDataGetter(DataGetter):
         df["day"] = (df["date"].astype("str").str[6:].astype(int)-16)/15  # Center and scale
         print("Calculating day of week var...")
         df["dayofweek"] = (pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek-3)/3  # Center and scale
-        for var in ["store_nbr", "item_nbr"]:
-            print("Calculating {} categorical var...".format(var))
-            df[var] = pd.Categorical(df[var]).codes
+        for var in categorical_feats:
+            if var in df.columns:
+                print("Calculating {} categorical var...".format(var))
+                df[var] = pd.Categorical(df[var]).codes
+        df = reduce_mem_usage(df)
         return df
 
 
@@ -414,6 +402,10 @@ class MasterTimelessGetter(DataGetter):
     def process(self, df):
         df = df.fillna(0)
         print("NA Data filled with zeros successfully! Reducing the size of the dataset...")
+        for var in categorical_feats:
+            if var in df.columns:
+                print("Calculating {} categorical var...".format(var))
+                df[var] = pd.Categorical(df[var]).codes
         df = reduce_mem_usage(df)
         return df
 
@@ -433,14 +425,22 @@ def get_categorical_cardinalities(data_cube, data_cube_timeless, categorical_fea
 
 def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size, colnames_time, colnames_timeless,
                           history_window_size=1000, prediction_window_size=30):
-    num_idx_time = np.where(np.expand_dims(numeric_feats == np.expand_dims(colnames_time, 1), 1))[0]
-    cat_idx_time = np.where(np.squeeze(np.setdiff1d(categorical_feats, ["store_nbr", "item_nbr"]))[:,None] == np.squeeze(colnames_time)[None])[1]
-    batch_time_normalizable_feats_idx = np.where(np.expand_dims(batch_time_normalizable_feats, 0) == np.expand_dims(colnames_time, 1))[0]
+    from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats, embedding_sizes
+    numeric_feats = np.array(numeric_feats)
+    categorical_feats = np.array(categorical_feats)
+    batch_time_normalizable_feats = np.array(batch_time_normalizable_feats)
+    colnames_time = np.array(colnames_time)
+    colnames_timeless = np.array(colnames_timeless)
+
+    num_idx_time = np.where(numeric_feats[None] == np.expand_dims(colnames_time, 1))[0]
+    cat_idx_time = np.where(np.setdiff1d(categorical_feats, ["store_nbr", "item_nbr"])[None] == colnames_time[:, None])[0]
+    batch_time_normalizable_feats_idx = np.where(batch_time_normalizable_feats[None] == colnames_time[:, None])[0]
     target_idx = np.where(target == colnames_time)[0]
-    numeric_feats_norm_idx = \
-    np.where(np.expand_dims(batch_time_normalizable_feats_idx, 0) == np.expand_dims(num_idx_time, 1))[0]
-    num_idx_timeless = np.where(np.expand_dims(numeric_feats, 0) == np.expand_dims(colnames_timeless, 1))[0]
-    cat_idx_timeless = np.where(np.expand_dims(categorical_feats, 0) == np.expand_dims(colnames_timeless, 1))[0]
+    numeric_feats_norm_idx = np.where(batch_time_normalizable_feats_idx[None] == num_idx_time[:,None])[0]
+    num_idx_timeless = np.where(numeric_feats[None] == colnames_timeless[:, None])[0]
+    cat_idx_timeless = np.where(categorical_feats[None] == colnames_timeless[:, None])[0]
+
+    categorical_feats_in_batch = [colnames_time[i] for i in cat_idx_time] + [colnames_timeless[i] for i in cat_idx_timeless]
 
     time_axis_size = data_cube_time.shape[1]
     batcher =  batching(list_of_iterables=[data_cube_time, data_cube_timeless], n=batch_size,
@@ -457,10 +457,12 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
 
         categorical_batch_static = batch_timeless[:, cat_idx_timeless].astype(int)[:, None, :] * \
                                    np.ones([1, categorical_batch.shape[1], 1])
+
         categorical_batch = np.concatenate([categorical_batch, categorical_batch_static], axis=-1)
 
         numeric_batch_static = batch_timeless[:, num_idx_timeless].astype(float)[:, None, :] * \
                                    np.ones([1, categorical_batch.shape[1], 1])
+
         numeric_batch = np.concatenate([numeric_batch, numeric_batch_static], axis=-1)
 
         # In batch normalization
@@ -480,12 +482,10 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
 
         # Prepare tensorflow batch
         tf_batch = dict()
-        for cat_i in range(categorical_batch.shape[2]):
-            tf_batch[getattr(model.ph, "cat_{}".format(cat_i))] = categorical_batch[:, :, [cat_i]]
+        for cat_i, cat_var in enumerate(categorical_feats_in_batch):
+            tf_batch[getattr(model.ph, "cat_{}".format(cat_var))] = categorical_batch[:, :, [cat_i]]
 
         tf_batch[model.ph.numerical_feats] = numeric_batch
         tf_batch[model.ph.target] = target_batch
-        ## TODO: Implement the normalizer for static feats, if needed
-        #if target_batch.shape[-1]==0:
-        #    1/0
+
         yield tf_batch, (target_mean, target_std)

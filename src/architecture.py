@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-
 class NameSpacer:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -35,8 +34,8 @@ class Seq2Seq:
     def define_placeholders(self):
         placeholders = dict()
         with tf.variable_scope("Placeholders"):
-            for i in range(len(self.categorical_cardinalities)):
-                ph_name="cat_{}".format(i)
+            for var, cardinality in self.categorical_cardinalities.items():
+                ph_name = "cat_{}".format(var)
                 placeholders[ph_name] = tf.placeholder(dtype=tf.int32, shape=(None, None, 1), name=ph_name)
 
             placeholders["numerical_feats"] = tf.placeholder(dtype=tf.float32, shape=(None, None,
@@ -52,10 +51,12 @@ class Seq2Seq:
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
             embedded_repr = []
-            for i, (cardinality, emb_size) in enumerate(zip(self.categorical_cardinalities, self.embedding_sizes)):
-                ph_name = "cat_{}".format(i)
+            for var, cardinality in self.categorical_cardinalities.items():
+                emb_size = self.embedding_sizes[var]
+                ph_name = "cat_{}".format(var)
                 emb_mat = tf.get_variable(name="emb_mat_"+ph_name, shape=[cardinality, emb_size])
                 embedded_repr.append(tf.nn.embedding_lookup(emb_mat, getattr(self.placeholders, ph_name))[:,:,0,:])
+
             features = tf.concat([self.placeholders.numerical_feats] + embedded_repr, axis=2)
 
             # Encoder

@@ -1,4 +1,4 @@
-from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities
+from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities, get_data_cube_from_df
 from src.constants import numeric_feats, categorical_feats, embedding_sizes
 from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
 from src.common_paths import get_tensorboard_path
@@ -15,32 +15,27 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 if __name__ == "__main__":
 
-    df_master_time = FactoryLoader().load("master")
-    df_master_timeless = FactoryLoader().load("master_timeless")
-
-    print("Data sorted successfully!")
+    df_master_time = FactoryLoader().load("master", sample=True)
+    cat_cardinalities_time = {col: df_master_time[col].nunique() for col in df_master_time.columns if
+                              col in categorical_feats}
     colnames_time = df_master_time.columns.values
-    shape = df_master_time.store_nbr.nunique()*df_master_time.item_nbr.nunique(), df_master_time.date.nunique(), df_master_time.shape[1]
-    print("Data transformed to numpy successfully!")
-    gc.collect()
-    df = df_master_time.to_numpy()
-    gc.collect()
-    df = df.reshape(shape)
-    gc.collect()
+    df = get_data_cube_from_df(df=df_master_time)
+
+    df_master_timeless = FactoryLoader().load("master_timeless", sample=True)
+    cat_cardinalities_timeless = {col: df_master_timeless[col].nunique() for col in df_master_timeless.columns if
+                              col in categorical_feats}
     colnames_timeless = df_master_timeless.columns.values
     df_timeless = df_master_timeless.to_numpy()
-    print("Data reshaped successfully!")
 
+    cat_cardinalities = dict(list(cat_cardinalities_time.items()) + list(cat_cardinalities_timeless.items()))
 
     c = 0
 
-    categorical_cardinalities = get_categorical_cardinalities(data_cube=df, data_cube_timeless=df_timeless,
-                                                              categorical_feats=categorical_feats,
-                                                              colnames_timeless=colnames_timeless,
-                                                              colnames=colnames_time)
     model = Seq2Seq(n_numerical_features=len(numeric_feats),
-                    categorical_cardinalities=categorical_cardinalities,
-                    embedding_sizes=embedding_sizes, n_output_ts=30)
+                    categorical_cardinalities=cat_cardinalities,
+                    embedding_sizes=embedding_sizes,
+                    n_output_ts=30)
+
     print("Model built successfully!")
 
     sess = start_tensorflow_session()
