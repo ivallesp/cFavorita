@@ -16,13 +16,13 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 if __name__ == "__main__":
 
-    df_master_time = FactoryLoader().load("master", sample=True)
+    df_master_time = FactoryLoader().load("master", sample=False)
     cat_cardinalities_time = {col: df_master_time[col].nunique() for col in df_master_time.columns if
                               col in categorical_feats}
     colnames_time = df_master_time.columns.values
     df = get_data_cube_from_df(df=df_master_time)
 
-    df_master_timeless = FactoryLoader().load("master_timeless", sample=True)
+    df_master_timeless = FactoryLoader().load("master_timeless", sample=False)
     cat_cardinalities_timeless = {col: df_master_timeless[col].nunique() for col in df_master_timeless.columns if
                               col in categorical_feats}
     colnames_timeless = df_master_timeless.columns.values
