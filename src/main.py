@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
 
     for epoch in range(10000):
+        print("Epoch", epoch)
         batcher = get_batcher_generator(data_cube_time=train_df, data_cube_timeless=df_timeless,
                                         model=model, batch_size=128, colnames_time=colnames_time,
                                         colnames_timeless=colnames_timeless,
@@ -87,7 +88,6 @@ if __name__ == "__main__":
             pred = pred*stats[1] + stats[0]
             target_sum += target.sum()
             pred_sum += pred.sum()
-            print(loss)
         mape = np.abs(pred_sum-target_sum)/target_sum
         s = sess.run(model.summ.scalar_train_performance_manual, feed_dict={model.ph.mape_train: mape})
 

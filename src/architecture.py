@@ -66,7 +66,7 @@ class Seq2Seq:
             go = tf.concat([tf.ones([tf.shape(self.placeholders.target)[0], 1, 512]),
                             tf.zeros([tf.shape(self.placeholders.target)[0], self.n_output_ts-1, 512])], axis=1)
             cell = tf.keras.layers.LSTMCell(512, name="decoder_cell")
-            output, _ = tf.nn.dynamic_rnn(cell, go, dtype=tf.float32)
+            output, _ = tf.nn.dynamic_rnn(cell, go, initial_state=states, dtype=tf.float32)
 
             output = tf.reshape(output, [-1, 512])
             output = tf.keras.layers.Dense(units=64, activation="relu")(output)
