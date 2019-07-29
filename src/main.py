@@ -1,10 +1,11 @@
-from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities, get_data_cube_from_df
+from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities, get_data_cube_from_df, shuffle_multiple
 from src.constants import numeric_feats, categorical_feats, embedding_sizes
 from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
 from src.common_paths import get_tensorboard_path
 import os
 import gc
 import numpy as np
+import datetime
 
 import tensorflow as tf
 from src.architecture import Seq2Seq
@@ -28,6 +29,10 @@ if __name__ == "__main__":
     df_timeless = df_master_timeless.to_numpy()
 
     cat_cardinalities = dict(list(cat_cardinalities_time.items()) + list(cat_cardinalities_timeless.items()))
+
+    print( datetime.datetime.now().isoformat(), "Shuffling...")
+    df, df_timeless = shuffle_multiple(df, df_timeless)
+    print( datetime.datetime.now().isoformat(), "Shuffle successful!")
 
     c = 0
 

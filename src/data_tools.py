@@ -12,6 +12,16 @@ from src.general_utilities import batching
 from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats, embedding_sizes
 
 
+def shuffle_multiple(*args, axis=0):
+    # Generate the permutation index array.
+    permutation = np.random.permutation(args[0].shape[axis])
+    # Shuffle the arrays by giving the permutation in the square brackets.
+    arrays = []
+    for array in args:
+        arrays.append(array[permutation])
+    return arrays
+
+
 def check_if_integer(column, tolerance=0.01):
     """
     Checks if a column can be converted to integer
