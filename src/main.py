@@ -1,11 +1,12 @@
 from src.data_tools import FactoryLoader, get_batcher_generator, get_categorical_cardinalities, get_data_cube_from_df, shuffle_multiple
-from src.constants import numeric_feats, categorical_feats, embedding_sizes
+from src.constants import numeric_feats, categorical_feats, embedding_sizes, batch_time_normalizable_feats
 from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
 from src.common_paths import get_tensorboard_path
 import os
 import gc
 import numpy as np
 import datetime
+
 
 import tensorflow as tf
 from src.architecture import Seq2Seq
@@ -57,7 +58,15 @@ if __name__ == "__main__":
     non_zero_cases = train_df[:,:,4].mean(axis=1) != 0
     train_df = train_df[non_zero_cases]
     dev_df = dev_df[non_zero_cases]
+    df_timeless = df_timeless[non_zero_cases]
 
+    norm_feats_idx = np.where(np.array(batch_time_normalizable_feats)[None] == np.array(colnames_time)[:, None])[0]
+    means = train_df[:,:,norm_feats_idx].mean(axis=1)
+    stds = train_df[:,:,norm_feats_idx].std(axis=1)
+    stds[stds == 0] = 1
+
+    train_df[:, :, norm_feats_idx] = (train_df[:, :, norm_feats_idx] - means[:, None]) / stds[:, None]
+    dev_df[:, :, norm_feats_idx] = (dev_df[:, :, norm_feats_idx] - means[:, None]) / stds[:, None]
 
 
     for epoch in range(10000):
@@ -65,19 +74,21 @@ if __name__ == "__main__":
         batcher = get_batcher_generator(data_cube_time=train_df, data_cube_timeless=df_timeless,
                                         model=model, batch_size=128, colnames_time=colnames_time,
                                         colnames_timeless=colnames_timeless,
-                                        history_window_size=380, prediction_window_size=30)
+                                        history_window_size=380, prediction_window_size=30,
+                                        means=means, stds=stds)
         batcher_test = get_batcher_generator(data_cube_time=dev_df, data_cube_timeless=df_timeless,
                                              model=model, batch_size=128, colnames_time=colnames_time,
                                              colnames_timeless=colnames_timeless,
-                                             history_window_size=380, prediction_window_size=30)
+                                             history_window_size=380, prediction_window_size=30,
+                                             means=means, stds=stds)
         losses = []
         target_sum = 0
         pred_sum = 0
         for batch, stats in batcher_test:
             loss, pred = sess.run([model.losses.loss_mse, model.core_model.output], batch)
             losses.append(loss)
-            target = batch[model.ph.target]*stats[1] + stats[0]
-            pred = pred*stats[1] + stats[0]
+            target = batch[model.ph.target]*stats[1][:,0][:,None,None]  + stats[0][:,0][:,None,None]
+            pred = pred*stats[1][:,0][:,None,None] + stats[0][:,0][:,None,None]
             target_sum += target.sum()
             pred_sum += pred.sum()
             #print(loss)
@@ -94,8 +105,8 @@ if __name__ == "__main__":
                                                model.core_model.output,
                                                model.summ.scalar_train_performance], batch)
             sw.add_summary(train_summary, c)
-            target = batch[model.ph.target]*stats[1] + stats[0]
-            pred = pred*stats[1] + stats[0]
+            target = batch[model.ph.target]*stats[1][:,0] + stats[0][:,0]
+            pred = pred*stats[1][:,0] + stats[0][:,0]
             target_sum += target.sum()
             pred_sum += pred.sum()
         mape = np.abs(pred_sum-target_sum)/target_sum

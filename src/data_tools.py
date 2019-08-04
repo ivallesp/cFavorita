@@ -436,7 +436,7 @@ def get_categorical_cardinalities(data_cube, data_cube_timeless, categorical_fea
 
 
 def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size, colnames_time, colnames_timeless,
-                          history_window_size=1000, prediction_window_size=30):
+                          history_window_size=1000, prediction_window_size=30, means=None, stds=None):
     from src.constants import numeric_feats, categorical_feats, target, batch_time_normalizable_feats, embedding_sizes
     numeric_feats = np.array(numeric_feats)
     categorical_feats = np.array(categorical_feats)
@@ -455,11 +455,13 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
     categorical_feats_in_batch = [colnames_time[i] for i in cat_idx_time] + [colnames_timeless[i] for i in cat_idx_timeless]
 
     time_axis_size = data_cube_time.shape[1]
-    batcher =  batching(list_of_iterables=[data_cube_time, data_cube_timeless], n=batch_size,
+    batcher =  batching(list_of_iterables=[data_cube_time, data_cube_timeless, means, stds], n=batch_size,
                                           return_incomplete_batches=False)
 
 
-    for batch, batch_timeless in batcher:
+    for batch, batch_timeless, batch_mean, batch_std in batcher:
+        #batch[:,:,batch_time_normalizable_feats_idx] = (batch[:,:,batch_time_normalizable_feats_idx] -
+        #                                                batch_mean[:,None])/batch_std[:,None]
         t0 = random.randint(0, time_axis_size-prediction_window_size-history_window_size)
         t1 = t0 + history_window_size
         t2 = t1 + prediction_window_size
@@ -477,21 +479,6 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
 
         numeric_batch = np.concatenate([numeric_batch, numeric_batch_static], axis=-1)
 
-        # In batch normalization
-        target_mean = batch[:, t0:t1, target_idx].astype(float).mean(axis=1, keepdims=True)
-        target_std = batch[:, t0:t1, target_idx].astype(float).std(axis=1, keepdims=True)
-
-        target_std[target_std == 0] = 1  # Avoid infinite
-
-        target_batch = (target_batch-target_mean)/target_std
-
-        # Calculate the indices over the numeric batch
-        for feat_idx in numeric_feats_norm_idx:
-            feat_mean = numeric_batch[:, :, [feat_idx]].astype(float).mean(axis=1, keepdims=True)
-            feat_std = numeric_batch[:, :, [feat_idx]].astype(float).std(axis=1, keepdims=True)
-            feat_std[feat_std == 0] = 1  # Avoid infinite
-            numeric_batch[:, :, [feat_idx]] = (numeric_batch[:, :, [feat_idx]] - feat_mean)/feat_std
-
         # Prepare tensorflow batch
         tf_batch = dict()
         for cat_i, cat_var in enumerate(categorical_feats_in_batch):
@@ -500,4 +487,4 @@ def get_batcher_generator(data_cube_time, data_cube_timeless, model, batch_size,
         tf_batch[model.ph.numerical_feats] = numeric_batch
         tf_batch[model.ph.target] = target_batch
 
-        yield tf_batch, (target_mean, target_std)
+        yield tf_batch, (batch_mean, batch_std)
