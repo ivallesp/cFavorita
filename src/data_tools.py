@@ -369,6 +369,8 @@ class MasterDataGetter(DataGetter):
             if var in df.columns:
                 print("Calculating {} categorical var...".format(var))
                 df[var] = pd.Categorical(df[var]).codes
+        df["dcoilwtico"] = (df["dcoilwtico"]-50)/50
+
         df = reduce_mem_usage(df)
         return df
 

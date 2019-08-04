@@ -10,8 +10,7 @@ numeric_feats = ["unit_sales",
                  "dayofweek"]
 
 batch_time_normalizable_feats = ["unit_sales",
-                                 "transactions",
-                                 "dcoilwtico"]
+                                 "transactions"]
 
 categorical_feats = ["store_nbr",
                      "item_nbr",

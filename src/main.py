@@ -12,17 +12,17 @@ from src.architecture import Seq2Seq
 
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
+SAMPLE = False
 
 if __name__ == "__main__":
 
-    df_master_time = FactoryLoader().load("master", sample=False)
+    df_master_time = FactoryLoader().load("master", sample=SAMPLE)
     cat_cardinalities_time = {col: df_master_time[col].nunique() for col in df_master_time.columns if
                               col in categorical_feats}
     colnames_time = df_master_time.columns.values
     df = get_data_cube_from_df(df=df_master_time)
 
-    df_master_timeless = FactoryLoader().load("master_timeless", sample=False)
+    df_master_timeless = FactoryLoader().load("master_timeless", sample=SAMPLE)
     cat_cardinalities_timeless = {col: df_master_timeless[col].nunique() for col in df_master_timeless.columns if
                               col in categorical_feats}
     colnames_timeless = df_master_timeless.columns.values
@@ -46,8 +46,18 @@ if __name__ == "__main__":
     sess = start_tensorflow_session()
     sw = get_summary_writer(sess, get_tensorboard_path(), "CF", "V0")
     sess.run(tf.global_variables_initializer())
-    train_df = df[:,:1000]
-    dev_df = df[:, (1000-380):(1000+60)]
+
+    train_end_idx = 1500
+    ts_size = 380
+    pred_window_size = 30
+
+    train_df = df[:,:train_end_idx]
+    dev_df = df[:, (train_end_idx-ts_size):(train_end_idx+pred_window_size)]
+
+    non_zero_cases = train_df[:,:,4].mean(axis=1) != 0
+    train_df = train_df[non_zero_cases]
+    dev_df = dev_df[non_zero_cases]
+
 
 
     for epoch in range(10000):
