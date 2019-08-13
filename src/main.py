@@ -49,7 +49,7 @@ if __name__ == "__main__":
     sess.run(tf.global_variables_initializer())
 
     train_end_idx = 1500
-    ts_size = 380
+    ts_size = 1000
     pred_window_size = 30
 
     train_df = df[:,:train_end_idx]
@@ -74,12 +74,12 @@ if __name__ == "__main__":
         batcher = get_batcher_generator(data_cube_time=train_df, data_cube_timeless=df_timeless,
                                         model=model, batch_size=128, colnames_time=colnames_time,
                                         colnames_timeless=colnames_timeless,
-                                        history_window_size=380, prediction_window_size=30,
+                                        history_window_size=ts_size, prediction_window_size=30,
                                         means=means, stds=stds)
         batcher_test = get_batcher_generator(data_cube_time=dev_df, data_cube_timeless=df_timeless,
                                              model=model, batch_size=128, colnames_time=colnames_time,
                                              colnames_timeless=colnames_timeless,
-                                             history_window_size=380, prediction_window_size=30,
+                                             history_window_size=ts_size, prediction_window_size=30,
                                              means=means, stds=stds)
         losses = []
         target_sum = 0
