@@ -1,3 +1,11 @@
 .idea
 *.csv
 data
+.venv
+Notebooks
+__pycache__
+tests/__pycache__
+*.pyc
+terraform
+.DS_Store
+.vscode

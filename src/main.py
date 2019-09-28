@@ -7,7 +7,6 @@ import gc
 import numpy as np
 import datetime
 
-
 import tensorflow as tf
 from src.architecture import Seq2Seq
 
@@ -105,8 +104,8 @@ if __name__ == "__main__":
                                                model.core_model.output,
                                                model.summ.scalar_train_performance], batch)
             sw.add_summary(train_summary, c)
-            target = batch[model.ph.target]*stats[1][:,0] + stats[0][:,0]
-            pred = pred*stats[1][:,0] + stats[0][:,0]
+            target = batch[model.ph.target]*stats[1][:,0][:,None,None] + stats[0][:,0][:,None,None]
+            pred = pred*stats[1][:,0][:,None,None] + stats[0][:,0][:,None,None]
             target_sum += target.sum()
             pred_sum += pred.sum()
         mape = np.abs(pred_sum-target_sum)/target_sum
