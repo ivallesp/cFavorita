@@ -4,7 +4,6 @@ import tempfile
 import pandas as pd
 
 from psycopg2 import connect
-from src.config import load_config
 from src.exceptions import CredentialsError
 
 
@@ -82,6 +81,7 @@ def copy_csv_from_s3_to_db(bucket_name, filepath, destination_table, db_name):
         destination_table (str): structure.table to use to unload the csv content.
         db_name (str): name of the db where the table will be unloaded.
     """
+    from src.config import load_config
     if filepath not in list_files_in_s3_bucket(bucket_name):
         raise FileNotFoundError(
             f"The filepath specified '{filepath}' does not exist in the"
