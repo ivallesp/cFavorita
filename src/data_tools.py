@@ -377,6 +377,9 @@ class TestDataGetter(DataGetter):
     keys = ["date", "store_nbr", "item_nbr"]
 
     def process(self, df):
+        df["onpromotion"] = ((df["onpromotion"] - 0.5) * 2).astype(float)
+        df["date"] = df.date.str.replace("-", "").astype(int)
+        df["unit_sales"] = np.log1p(np.clip(df.unit_sales, 0, None))
         return df
 
 
@@ -387,7 +390,7 @@ class TrainDataGetter(DataGetter):
     def process(self, df):
         df["onpromotion"] = ((df["onpromotion"] - 0.5) * 2).astype(float)
         df["date"] = df.date.str.replace("-", "").astype(int)
-        df["unit_sales"] = np.log1p(df.unit_sales)
+        df["unit_sales"] = np.log1p(np.clip(df.unit_sales, 0, None))
         return df
 
 
