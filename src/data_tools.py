@@ -381,6 +381,7 @@ class TrainDataGetter(DataGetter):
     def process(self, df):
         df["onpromotion"] = ((df["onpromotion"] - 0.5) * 2).astype(float)
         df["date"] = df.date.str.replace("-", "").astype(int)
+        df["unit_sales"] = np.log1p(df.unit_sales)
         return df
 
 
@@ -390,6 +391,8 @@ class TransactionsDataGetter(DataGetter):
 
     def process(self, df):
         df["date"] = df.date.str.replace("-", "").astype(int)
+        df["transactions"] = np.log1p(df.transactions) - 7  # Rough center and scaling
+
         return df
 
 
