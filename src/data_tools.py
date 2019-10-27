@@ -592,7 +592,7 @@ def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
         present = random.randint(min_history, time_steps - forecast_horizon)
 
         # Numerical time-dependent features
-        numeric_time_batch = batch_time[numeric_feats][:, :present]
+        numeric_time_batch = batch_time[num_time_feats][:, :present]
 
         # Categorical time-dependent features
         cat_time_batch = batch_time[cat_time_feats][:, :present]
