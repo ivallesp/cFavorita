@@ -15,7 +15,6 @@ from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
 from src.common_paths import get_tensorboard_path
 import os
 import numpy as np
-import datetime
 
 import tensorflow as tf
 from src.architecture import Seq2Seq
@@ -46,15 +45,7 @@ if __name__ == "__main__":
         list(cat_cardinalities_time.items()) + list(cat_cardinalities_timeless.items())
     )
 
-    print(datetime.datetime.now().isoformat(), "Shuffling...")
-    df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
-    print(datetime.datetime.now().isoformat(), "Shuffle successful!")
 
-    # Assure perfect alignment
-    case_static = df_master_static[["store_nbr", "item_nbr"]]
-    case_time = df_master[:, 0][["store_nbr", "item_nbr"]]
-    assert (case_static == case_time).all()
-    c = 0
 
     model = Seq2Seq(
         n_numerical_features=len(numeric_feats),

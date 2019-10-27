@@ -4,6 +4,8 @@ import sys
 import inspect
 import gc
 import random
+import datetime
+import random
 
 from tqdm import tqdm
 import numpy as np
@@ -167,10 +169,7 @@ def get_data_cube_from_df(df):
 
 
 def get_records_cube_from_df(df):
-    shape = (
-        df.store_nbr.nunique() * df.item_nbr.nunique(),
-        df.date.nunique(),
-    )
+    shape = (df.store_nbr.nunique() * df.item_nbr.nunique(), df.date.nunique())
     gc.collect()
     df = df.to_records()
     gc.collect()
@@ -549,94 +548,55 @@ def get_categorical_cardinalities(
     return categorical_cardinalities + categorical_cardinalities_static
 
 
-def get_batcher_generator(
-    data_cube_time,
-    data_cube_timeless,
-    model,
-    batch_size,
-    colnames_time,
-    colnames_timeless,
-    history_window_size=1000,
-    prediction_window_size=30,
-    means=None,
-    stds=None,
-):
+def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
     from src.constants import (
         numeric_feats,
         categorical_feats,
-        target,
+        target_name,
         batch_time_normalizable_feats,
         embedding_sizes,
     )
 
-    numeric_feats = np.array(numeric_feats)
-    categorical_feats = np.array(categorical_feats)
-    batch_time_normalizable_feats = np.array(batch_time_normalizable_feats)
-    colnames_time = np.array(colnames_time)
-    colnames_timeless = np.array(colnames_timeless)
+    print(datetime.datetime.now().isoformat(), "Shuffling...")
+    df_time, df_static = shuffle_multiple(df_time, df_static)
+    print(datetime.datetime.now().isoformat(), "Shuffle successful!")
 
-    num_idx_time = np.where(numeric_feats[None] == np.expand_dims(colnames_time, 1))[0]
-    cat_idx_time = np.where(
-        np.setdiff1d(categorical_feats, ["store_nbr", "item_nbr"])[None]
-        == colnames_time[:, None]
-    )[0]
-    batch_time_normalizable_feats_idx = np.where(
-        batch_time_normalizable_feats[None] == colnames_time[:, None]
-    )[0]
-    target_idx = np.where(target == colnames_time)[0]
-    numeric_feats_norm_idx = np.where(
-        batch_time_normalizable_feats_idx[None] == num_idx_time[:, None]
-    )[0]
-    num_idx_timeless = np.where(numeric_feats[None] == colnames_timeless[:, None])[0]
-    cat_idx_timeless = np.where(categorical_feats[None] == colnames_timeless[:, None])[
-        0
-    ]
+    # Assure perfect alignment
+    case_static = df_static[["store_nbr", "item_nbr"]]
+    case_time = df_time[:, 0][["store_nbr", "item_nbr"]]
+    assert (case_static == case_time).all()
 
-    categorical_feats_in_batch = [colnames_time[i] for i in cat_idx_time] + [
-        colnames_timeless[i] for i in cat_idx_timeless
-    ]
+    time_steps = df_time.shape[1]
+    min_history = 365
+    forecast_horizon = 7
 
-    time_axis_size = data_cube_time.shape[1]
     batcher = batching(
-        list_of_iterables=[data_cube_time, data_cube_timeless, means, stds],
+        list_of_iterables=[df_time, df_static],
         n=batch_size,
         return_incomplete_batches=False,
     )
 
-    for batch, batch_timeless, batch_mean, batch_std in batcher:
-        # batch[:,:,batch_time_normalizable_feats_idx] = (batch[:,:,batch_time_normalizable_feats_idx] -
-        #                                                batch_mean[:,None])/batch_std[:,None]
-        t0 = random.randint(
-            0, time_axis_size - prediction_window_size - history_window_size
-        )
-        t1 = t0 + history_window_size
-        t2 = t1 + prediction_window_size
-        numeric_batch = batch[:, t0:t1, num_idx_time].astype(float)
-        categorical_batch = batch[:, t0:t1, cat_idx_time].astype(int)
-        target_batch = batch[:, t1:t2, target_idx].astype(float)
+    num_time_feats = np.intersect1d(numeric_feats, df_time.dtype.names)
+    num_static_feats = np.intersect1d(numeric_feats, df_static.dtype.names)
+    cat_time_feats = np.intersect1d(categorical_feats, df_time.dtype.names)
+    cat_static_feats = np.intersect1d(categorical_feats, df_static.dtype.names)
 
-        categorical_batch_static = batch_timeless[:, cat_idx_timeless].astype(int)[
-            :, None, :
-        ] * np.ones([1, categorical_batch.shape[1], 1])
+    for batch_time, batch_static in batcher:
+        present = random.randint(min_history, time_steps - forecast_horizon)
 
-        categorical_batch = np.concatenate(
-            [categorical_batch, categorical_batch_static], axis=-1
-        )
+        # Numerical time-dependent features
+        numeric_time_batch = batch_time[numeric_feats][:, :present]
 
-        numeric_batch_static = batch_timeless[:, num_idx_timeless].astype(float)[
-            :, None, :
-        ] * np.ones([1, categorical_batch.shape[1], 1])
+        # Categorical time-dependent features
+        cat_time_batch = batch_time[cat_time_feats][:, :present]
 
-        numeric_batch = np.concatenate([numeric_batch, numeric_batch_static], axis=-1)
+        # Numerical static features (Not defined)
+        # numeric_static_batch = batch_static[num_static_feats]
 
-        # Prepare tensorflow batch
-        tf_batch = dict()
-        for cat_i, cat_var in enumerate(categorical_feats_in_batch):
-            tf_batch[getattr(model.ph, "cat_{}".format(cat_var))] = categorical_batch[
-                :, :, [cat_i]
-            ]
+        # Categorical static features
+        cat_static_batch = batch_static[cat_static_feats]
 
-        tf_batch[model.ph.numerical_feats] = numeric_batch
-        tf_batch[model.ph.target] = target_batch
+        # Target
+        target = batch_time[target_name][:, present : (present + forecast_horizon)]
 
-        yield tf_batch, (batch_mean, batch_std)
+        yield numeric_time_batch, cat_time_batch, cat_static_batch, target
