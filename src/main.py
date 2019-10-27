@@ -21,7 +21,7 @@ from src.architecture import Seq2Seq
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-SAMPLE = False
+SAMPLE = True
 
 if __name__ == "__main__":
     # Load data
