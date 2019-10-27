@@ -7,6 +7,7 @@ import random
 import datetime
 import random
 
+from itertools import zip_longest
 from tqdm import tqdm
 import numpy as np
 from src.common_paths import get_data_path
@@ -18,6 +19,12 @@ from src.constants import (
     batch_time_normalizable_feats,
     embedding_sizes,
 )
+
+
+def recarray_to_array(r, dtype):
+    dtypes = list(zip_longest(r.dtype.names, [dtype]))
+    r = r.astype(dtypes).view(dtype)
+    return np.array(r)
 
 
 def shuffle_multiple(*args, axis=0):
