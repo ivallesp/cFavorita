@@ -15,7 +15,7 @@ from src.general_utilities import batching
 from src.constants import (
     numeric_feats,
     categorical_feats,
-    target,
+    target_name,
     batch_time_normalizable_feats,
     embedding_sizes,
 )
