@@ -27,35 +27,33 @@ SAMPLE = False
 if __name__ == "__main__":
     # Load data
     df_master = FactoryLoader().load("master", sample=SAMPLE)
+    df_master = get_records_cube_from_df(df=df_master)
     cat_cardinalities_time = {
-        col: df_master[col].nunique()
-        for col in df_master.columns
+        col: len(np.unique(df_master[col]))
+        for col in df_master.dtype.names
         if col in categorical_feats
     }
-    colnames_time = df_master.columns.values
-
-    df = get_records_cube_from_df(df=df_master)
 
     df_master_static = FactoryLoader().load("master_timeless", sample=SAMPLE)
+    df_master_static = df_master_static.to_records()
     cat_cardinalities_timeless = {
-        col: df_master_static[col].nunique()
-        for col in df_master_static.columns
+        col: len(np.unique(df_master_static[col]))
+        for col in df_master_static.dtype.names
         if col in categorical_feats
     }
-    colnames_timeless = df_master_static.columns.values
-    df_static = df_master_static.to_numpy()
 
     cat_cardinalities = dict(
         list(cat_cardinalities_time.items()) + list(cat_cardinalities_timeless.items())
     )
 
-    # Assure perfect alignment
-    assert (df_static[:, [0, 1]] == df[:, 0, [1, 2]]).all()
-
     print(datetime.datetime.now().isoformat(), "Shuffling...")
-    df, df_static = shuffle_multiple(df, df_static)
+    df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
     print(datetime.datetime.now().isoformat(), "Shuffle successful!")
 
+    # Assure perfect alignment
+    case_static = df_master_static[["store_nbr", "item_nbr"]]
+    case_time = df_master[:, 0][["store_nbr", "item_nbr"]]
+    assert (case_static == case_time).all()
     c = 0
 
     model = Seq2Seq(
