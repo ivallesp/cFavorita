@@ -1,103 +1,118 @@
-import tensorflow as tf
+import torch
+from torch import nn
+import numpy as np
+from src.constants import embedding_sizes
 
-class NameSpacer:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+
+class Seq2Seq(nn.Module):
+    def __init__(
+        self,
+        n_num_time_feats,
+        cardinalities_time,
+        cardinalities_static,
+        n_forecast_timesteps,
+    ):
+        super().__init__()
+        self.encoder = Encoder(
+            n_num_time_feats=n_num_time_feats,
+            categorical_cardinalities=cardinalities_time,
+        )
+        self.decoder = Decoder(
+            n_forecast_timesteps=n_forecast_timesteps,
+            categorical_cardinalities=cardinalities_static,
+        )
+
+    def forward(
+        self, x_num_time, x_cat_time, x_cat_static, cat_time_names, cat_static_names
+    ):
+        contextual_thought = self.encoder.forward(
+            x_num_time=x_num_time, x_cat_time=x_cat_time, cat_time_names=cat_time_names
+        )
+        output = self.decoder.forward(
+            x_cat_static=x_cat_static,
+            cat_static_names=cat_static_names,
+            state=contextual_thought,
+        )
+        return output
 
 
-class Seq2Seq:
-    def __init__(self, n_numerical_features, categorical_cardinalities, embedding_sizes, n_output_ts, name="S2S"):
-        self.name = name
+class Encoder(nn.Module):
+    def __init__(self, n_num_time_feats, categorical_cardinalities):
+        super().__init__()
+        self.embs = {}
+        for cat in categorical_cardinalities:
+            self.embs[cat] = nn.Embedding(
+                num_embeddings=categorical_cardinalities[cat],
+                embedding_dim=embedding_sizes[cat],
+                scale_grad_by_freq=False,
+            )
+        embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
+        input_sz = embs_sz + n_num_time_feats
+        self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
 
-        self.n_numerical_features = n_numerical_features
-        self.embedding_sizes = embedding_sizes
-        self.categorical_cardinalities = categorical_cardinalities
-        self.n_output_ts = n_output_ts
-        self.n_categorical_features = len(categorical_cardinalities)
-        self.optimizer_function = tf.train.AdamOptimizer(learning_rate=0.001)
-        self.define_computation_graph()
+    def forward(self, x_num_time, x_cat_time, cat_time_names):
+        emb_feats = []
+        for i, cat_feat_name in enumerate(cat_time_names):
+            emb_feats += [self.embs[cat_feat_name](x_cat_time[:, :, i].long())]
+            # TODO: make all the tensor long to enhance efficiency
 
-        # Aliases
-        self.ph = self.placeholders
-        self.op = self.optimizers
-        self.summ = self.summaries
+        time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
+        _, state = self.rnn_encoder(time_features)
+        return state
 
-    def define_computation_graph(self):
-        # Reset graph
-        tf.reset_default_graph()
-        self.placeholders = NameSpacer(**self.define_placeholders())
-        self.core_model = NameSpacer(**self.define_core_model())
-        self.losses = NameSpacer(**self.define_losses())
-        self.optimizers = NameSpacer(**self.define_optimizers())
-        self.summaries = NameSpacer(**self.define_summaries())
 
-    def define_placeholders(self):
-        placeholders = dict()
-        with tf.variable_scope("Placeholders"):
-            for var, cardinality in self.categorical_cardinalities.items():
-                ph_name = "cat_{}".format(var)
-                placeholders[ph_name] = tf.placeholder(dtype=tf.int32, shape=(None, None, 1), name=ph_name)
+class Decoder(nn.Module):
+    def __init__(self, n_forecast_timesteps, categorical_cardinalities):
+        super().__init__()
+        self.n_forecast_timesteps = n_forecast_timesteps
+        self.n_recurrent_cells = 128
+        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
+        self.embs = {}
 
-            placeholders["numerical_feats"] = tf.placeholder(dtype=tf.float32, shape=(None, None,
-                                                                                      self.n_numerical_features))
+        for cat in categorical_cardinalities:
+            self.embs[cat] = nn.Embedding(
+                num_embeddings=categorical_cardinalities[cat],
+                embedding_dim=embedding_sizes[cat],
+                scale_grad_by_freq=False,
+            )
+        embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
+        thought_sz = self.n_recurrent_cells * 2
+        context_thought_sz = thought_sz + embs_sz
+        cd_h1 = nn.Linear(in_features=context_thought_sz, out_features=512)
+        cd_h2 = nn.Linear(in_features=512, out_features=384)
+        cd_h3 = nn.Linear(in_features=384, out_features=thought_sz)
+        self.conditioning = nn.Sequential(
+            cd_h1, nn.ReLU(True), cd_h2, nn.ReLU(True), cd_h3
+        )
+        td_h1 = nn.Linear(in_features=self.n_recurrent_cells, out_features=128)
+        td_h2 = nn.Linear(in_features=128, out_features=1)
+        self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
 
-            placeholders["target"] = tf.placeholder(dtype=tf.float32, shape=(None, self.n_output_ts, 1))
-            placeholders["loss_dev"] = tf.placeholder(dtype=tf.float32, shape=None, name="loss_dev_manual")
-            placeholders["mape_dev"] = tf.placeholder(dtype=tf.float32, shape=None, name="mape_dev_manual")
-            placeholders["mape_train"] = tf.placeholder(dtype=tf.float32, shape=None, name="mape_train_manual")
+    def forward(self, x_cat_static, cat_static_names, state):
+        # Mock the input of the decoder
+        # TODO: Adapt forward looking features
+        batch_size = x_cat_static.shape[0]
+        assert x_cat_static.shape[-1] == len(cat_static_names)
 
-        return placeholders
+        emb_feats = []
+        for i, cat_feat_name in enumerate(cat_static_names):
+            emb_feats += [self.embs[cat_feat_name](x_cat_static[:, i].long())]
+            # TODO: make all the tensor long to enhance efficiency
 
-    def define_core_model(self):
-        with tf.variable_scope("Core_Model"):
-            embedded_repr = []
-            for var, cardinality in self.categorical_cardinalities.items():
-                emb_size = self.embedding_sizes[var]
-                ph_name = "cat_{}".format(var)
-                emb_mat = tf.get_variable(name="emb_mat_"+ph_name, shape=[cardinality, emb_size])
-                embedded_repr.append(tf.nn.embedding_lookup(emb_mat, getattr(self.placeholders, ph_name))[:,:,0,:])
+        thought = torch.cat(state, -1).squeeze()
+        context_thought = torch.cat(emb_feats + [thought], -1).squeeze()
+        context_thought = self.conditioning(context_thought)
+        context_thought = (
+            context_thought[:, : self.n_recurrent_cells].unsqueeze(0),
+            context_thought[:, self.n_recurrent_cells :].unsqueeze(0),
+        )
 
-            features = tf.concat([self.placeholders.numerical_feats] + embedded_repr, axis=2)
-
-            # Encoder
-            cell = tf.keras.layers.LSTMCell(512, name="encoder_cell")
-            _, states = tf.nn.dynamic_rnn(cell, features, dtype=tf.float32)
-
-            # Decoder
-            go = tf.concat([tf.ones([tf.shape(self.placeholders.target)[0], 1, 512]),
-                            tf.zeros([tf.shape(self.placeholders.target)[0], self.n_output_ts-1, 512])], axis=1)
-            cell = tf.keras.layers.LSTMCell(512, name="decoder_cell")
-            output, _ = tf.nn.dynamic_rnn(cell, go, initial_state=states, dtype=tf.float32)
-
-            output = tf.reshape(output, [-1, 512])
-            output = tf.keras.layers.Dense(units=64, activation="relu")(output)
-            output = tf.keras.layers.Dense(units=1, activation=None)(output)
-            output = tf.reshape(output, [-1, self.n_output_ts, 1])
-
-        return {"output": output}
-
-    def define_losses(self):
-        with tf.variable_scope("Losses"):
-            loss = tf.losses.mean_squared_error(self.core_model.output, self.placeholders.target)
-        return {"loss_mse": loss}
-
-    def define_optimizers(self):
-        op = self.optimizer_function.minimize(self.losses.loss_mse)
-        return {"op": op}
-
-    def define_summaries(self):
-        with tf.variable_scope("Summaries"):
-            train_final_scalar_probes = {"loss_mse": tf.squeeze(self.losses.loss_mse)}
-            final_performance_scalar = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
-                                        for k, v in train_final_scalar_probes.items()]
-
-            train_final_scalar_probes_manual = {"mape_train": self.placeholders.mape_train}
-            final_performance_scalar_manual = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
-                                        for k, v in train_final_scalar_probes_manual.items()]
-
-            dev_scalar_probes = {"loss_dev": self.placeholders.loss_dev,
-                                 "mape_dev": self.placeholders.mape_dev}
-            dev_performance_scalar = [tf.summary.scalar(k, v) for k, v in dev_scalar_probes.items()]
-        return {"scalar_train_performance": tf.summary.merge(final_performance_scalar),
-                "scalar_train_performance_manual":  tf.summary.merge(final_performance_scalar_manual),
-                "scalar_dev_performance": tf.summary.merge(dev_performance_scalar)}
+        input_decoder = torch.zeros(
+            self.n_forecast_timesteps, context_thought[0].shape[1], 1
+        )
+        input_decoder[0, :, :] = 1  # GO!
+        output, _ = self.rnn_decoder(input_decoder, context_thought)
+        h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])
+        h = self.time_distributed(h)
+        output = h.reshape(self.n_forecast_timesteps, batch_size, 1).squeeze()
+        return output
