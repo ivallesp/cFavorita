@@ -16,6 +16,7 @@ from src.constants import (
 
 from src.tensorflow_tools import start_tensorflow_session, get_summary_writer
 from src.common_paths import get_tensorboard_path
+
 import os
 import numpy as np
 
@@ -66,19 +67,15 @@ if __name__ == "__main__":
     )
 
     # Example of full forward pass
-    s2s.forward(
-        x_num_time=x_num_time,
-        x_cat_time=x_cat_time,
-        x_cat_static=x_cat_static,
-        cat_time_names=cat_time_names,
-        cat_static_names=cat_static_names,
-    )
 
     c = 0
     for numeric_time_batch, cat_time_batch, cat_static_batch, target in batcher:
-        x_num_time = recarray_to_array(numeric_time_batch, np.float32)
-        x_cat_time = recarray_to_array(cat_time_batch, np.int32)
-        x_cat_static = recarray_to_array(cat_static_batch, np.int32)
-        # TODO: COnvert to torch and swapaxes
-        cat_static_names = cat_static_batch.dtype.names
+        print("BOOM!")
+        s2s.forward(
+            x_num_time=numeric_time_batch,
+            x_cat_time=cat_time_batch,
+            x_cat_static=cat_static_batch,
+            cat_time_names=cat_time_feats,
+            cat_static_names=cat_static_feats,
+        )
         c += 1

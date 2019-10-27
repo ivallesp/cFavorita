@@ -6,6 +6,7 @@ import gc
 import random
 import datetime
 import random
+import torch
 
 from itertools import zip_longest
 from tqdm import tqdm
@@ -611,4 +612,15 @@ def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
         # Target
         target = batch_time[target_name][:, present : (present + forecast_horizon)]
 
+        # Convert to arrays
+        numeric_time_batch = recarray_to_array(numeric_time_batch, np.float32).swapaxes(0,1)
+        cat_time_batch = recarray_to_array(cat_time_batch, np.int32).swapaxes(0,1)
+        cat_static_batch = recarray_to_array(cat_static_batch, np.int32)
+        target = target.astype(np.float32)
+
+        # Convert to torch tensors
+        numeric_time_batch = torch.from_numpy(numeric_time_batch)
+        cat_time_batch = torch.from_numpy(cat_time_batch).long()
+        cat_static_batch = torch.from_numpy(cat_static_batch).long()
+        target = torch.from_numpy(target)
         yield numeric_time_batch, cat_time_batch, cat_static_batch, target
