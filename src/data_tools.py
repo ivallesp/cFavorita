@@ -166,6 +166,19 @@ def get_data_cube_from_df(df):
     return df
 
 
+def get_records_cube_from_df(df):
+    shape = (
+        df.store_nbr.nunique() * df.item_nbr.nunique(),
+        df.date.nunique(),
+    )
+    gc.collect()
+    df = df.to_records()
+    gc.collect()
+    df = df.reshape(shape)
+    gc.collect()
+    return df
+
+
 class FactoryLoader:
     def __init__(self):
         self.factory_dict = self.build_factory_dictionary()

@@ -2,7 +2,7 @@ from src.data_tools import (
     FactoryLoader,
     get_batcher_generator,
     get_categorical_cardinalities,
-    get_data_cube_from_df,
+    get_records_cube_from_df,
     shuffle_multiple,
 )
 from src.constants import (
@@ -33,7 +33,8 @@ if __name__ == "__main__":
         if col in categorical_feats
     }
     colnames_time = df_master.columns.values
-    df = get_data_cube_from_df(df=df_master)
+
+    df = get_records_cube_from_df(df=df_master)
 
     df_master_static = FactoryLoader().load("master_timeless", sample=SAMPLE)
     cat_cardinalities_timeless = {

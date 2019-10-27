@@ -9,3 +9,4 @@ tests/__pycache__
 terraform
 .DS_Store
 .vscode
+*.zip
