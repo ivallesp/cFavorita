@@ -4,7 +4,7 @@ from src.data_tools import (
     get_categorical_cardinalities,
     get_records_cube_from_df,
     shuffle_multiple,
-    recarray_to_array
+    recarray_to_array,
 )
 
 from src.constants import (
@@ -20,7 +20,7 @@ import os
 import numpy as np
 
 import tensorflow as tf
-from src.architecture import Seq2Seq
+from src.architecture import Seq2seq
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
@@ -52,6 +52,33 @@ if __name__ == "__main__":
         df_time=df_master, df_static=df_master_static, batch_size=128, shuffle=True
     )
 
-    c=0
+    # Model definition
+    num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)
+    num_static_feats = np.intersect1d(numeric_feats, df_master_static.dtype.names)
+    cat_time_feats = np.intersect1d(categorical_feats, df_master.dtype.names)
+    cat_static_feats = np.intersect1d(categorical_feats, df_master_static.dtype.names)
+
+    s2s = Seq2Seq(
+        n_num_time_feats=len(num_time_feats),
+        cardinalities_time=cat_cardinalities_time,
+        cardinalities_static=cat_cardinalities_timeless,
+        n_forecast_timesteps=15,
+    )
+
+    # Example of full forward pass
+    s2s.forward(
+        x_num_time=x_num_time,
+        x_cat_time=x_cat_time,
+        x_cat_static=x_cat_static,
+        cat_time_names=cat_time_names,
+        cat_static_names=cat_static_names,
+    )
+
+    c = 0
     for numeric_time_batch, cat_time_batch, cat_static_batch, target in batcher:
-        c+=1
+        x_num_time = recarray_to_array(numeric_time_batch, np.float32)
+        x_cat_time = recarray_to_array(cat_time_batch, np.int32)
+        x_cat_static = recarray_to_array(cat_static_batch, np.int32)
+        # TODO: COnvert to torch and swapaxes
+        cat_static_names = cat_static_batch.dtype.names
+        c += 1
