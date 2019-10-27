@@ -22,8 +22,10 @@ from src.constants import (
 
 
 def recarray_to_array(r, dtype):
-    dtypes = list(zip_longest(r.dtype.names, [dtype]))
+    shape = list(r.shape) + [len(r.dtype)]
+    dtypes = list(zip(r.dtype.names, [dtype]*len(r.dtype.names)))
     r = r.astype(dtypes).view(dtype)
+    r = r.reshape(shape)
     return np.array(r)
 
 
