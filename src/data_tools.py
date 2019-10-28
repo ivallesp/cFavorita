@@ -24,7 +24,7 @@ from src.constants import (
 
 def recarray_to_array(r, dtype):
     shape = list(r.shape) + [len(r.dtype)]
-    dtypes = list(zip(r.dtype.names, [dtype]*len(r.dtype.names)))
+    dtypes = list(zip(r.dtype.names, [dtype] * len(r.dtype.names)))
     r = r.astype(dtypes).view(dtype)
     r = r.reshape(shape)
     return np.array(r)
@@ -602,7 +602,7 @@ def get_batches_generator(
 
     for batch_time, batch_static in batcher:
         if shuffle_present:
-        present = random.randint(min_history, time_steps - forecast_horizon)
+            present = random.randint(min_history, time_steps - forecast_horizon)
         else:
             present = time_steps - forecast_horizon
 
