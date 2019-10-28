@@ -10,3 +10,5 @@ terraform
 .DS_Store
 .vscode
 *.zip
+settings.json
+*.tfevents*
