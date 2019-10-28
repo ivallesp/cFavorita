@@ -561,7 +561,15 @@ def get_categorical_cardinalities(
     return categorical_cardinalities + categorical_cardinalities_static
 
 
-def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
+def get_batches_generator(
+    df_time,
+    df_static,
+    batch_size=128,
+    min_history=300,
+    forecast_horizon=7,
+    shuffle=True,
+    shuffle_present=True,
+):
     from src.constants import (
         numeric_feats,
         categorical_feats,
@@ -580,8 +588,6 @@ def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
     assert (case_static == case_time).all()
 
     time_steps = df_time.shape[1]
-    min_history = 365
-    forecast_horizon = 7
 
     batcher = batching(
         list_of_iterables=[df_time, df_static],
@@ -595,7 +601,10 @@ def get_batches_generator(df_time, df_static, batch_size=128, shuffle=True):
     cat_static_feats = np.intersect1d(categorical_feats, df_static.dtype.names)
 
     for batch_time, batch_static in batcher:
+        if shuffle_present:
         present = random.randint(min_history, time_steps - forecast_horizon)
+        else:
+            present = time_steps - forecast_horizon
 
         # Numerical time-dependent features
         numeric_time_batch = batch_time[num_time_feats][:, :present]
