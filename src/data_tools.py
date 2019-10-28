@@ -622,10 +622,12 @@ def get_batches_generator(
         target = batch_time[target_name][:, present : (present + forecast_horizon)]
 
         # Convert to arrays
-        numeric_time_batch = recarray_to_array(numeric_time_batch, np.float32).swapaxes(0,1)
-        cat_time_batch = recarray_to_array(cat_time_batch, np.int32).swapaxes(0,1)
+        numeric_time_batch = recarray_to_array(numeric_time_batch, np.float32).swapaxes(
+            0, 1
+        )
+        cat_time_batch = recarray_to_array(cat_time_batch, np.int32).swapaxes(0, 1)
         cat_static_batch = recarray_to_array(cat_static_batch, np.int32)
-        target = target.astype(np.float32)
+        target = target.astype(np.float32).swapaxes(0, 1)
 
         # Convert to torch tensors
         numeric_time_batch = torch.from_numpy(numeric_time_batch)
