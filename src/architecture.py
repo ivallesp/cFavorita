@@ -11,6 +11,7 @@ class Seq2Seq(nn.Module):
         cardinalities_time,
         cardinalities_static,
         n_forecast_timesteps,
+        lr,
     ):
         super().__init__()
         self.encoder = Encoder(
@@ -21,6 +22,7 @@ class Seq2Seq(nn.Module):
             n_forecast_timesteps=n_forecast_timesteps,
             categorical_cardinalities=cardinalities_static,
         )
+        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=lr)
 
     def forward(
         self, x_num_time, x_cat_time, x_cat_static, cat_time_names, cat_static_names
@@ -34,6 +36,53 @@ class Seq2Seq(nn.Module):
             state=contextual_thought,
         )
         return output
+
+    def loss(
+        self,
+        x_num_time,
+        x_cat_time,
+        x_cat_static,
+        cat_time_names,
+        cat_static_names,
+        target,
+    ):
+        y_hat = self.forward(
+            x_num_time=x_num_time,
+            x_cat_time=x_cat_time,
+            x_cat_static=x_cat_static,
+            cat_time_names=cat_time_names,
+            cat_static_names=cat_static_names,
+        )
+        loss = torch_rmse(target, y_hat)
+        return loss, y_hat
+
+    def step(
+        self,
+        x_num_time,
+        x_cat_time,
+        x_cat_static,
+        cat_time_names,
+        cat_static_names,
+        target,
+    ):
+        loss, y_hat = self.loss(
+            x_num_time=x_num_time,
+            x_cat_time=x_cat_time,
+            x_cat_static=x_cat_static,
+            cat_time_names=cat_time_names,
+            cat_static_names=cat_static_names,
+            target=target,
+        )
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        return loss, y_hat
+
+
+def torch_rmse(actual, forecast):
+    residuals = actual - forecast
+    rmse = torch.sqrt(torch.mean((residuals) ** 2))
+    return rmse
 
 
 class Encoder(nn.Module):
