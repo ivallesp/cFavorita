@@ -96,7 +96,7 @@ class Encoder(nn.Module):
                 scale_grad_by_freq=False,
             )
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
-        input_sz = embs_sz + n_num_time_feats
+        input_sz = int(embs_sz + n_num_time_feats)
         self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
 
     def forward(self, x_num_time, x_cat_time, cat_time_names):
@@ -152,13 +152,13 @@ class Decoder(nn.Module):
         context_thought = torch.cat(emb_feats + [thought], -1).squeeze()
         context_thought = self.conditioning(context_thought)
         context_thought = (
-            context_thought[:, : self.n_recurrent_cells].unsqueeze(0),
-            context_thought[:, self.n_recurrent_cells :].unsqueeze(0),
+            context_thought[:, : self.n_recurrent_cells].unsqueeze(0).contiguous(),
+            context_thought[:, self.n_recurrent_cells :].unsqueeze(0).contiguous(),
         )
 
         input_decoder = torch.zeros(
             self.n_forecast_timesteps, context_thought[0].shape[1], 1
-        )
+        ).cuda()  # TODO: Parametrize
         input_decoder[0, :, :] = 1  # GO!
         output, _ = self.rnn_decoder(input_decoder, context_thought)
         h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])

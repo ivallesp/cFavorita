@@ -65,6 +65,11 @@ if __name__ == "__main__":
         n_forecast_timesteps=7,
         lr=1e-4,
     )
+    s2s.cuda()
+    # TODO: Revise the graph. Why not full conversion?
+    
+    [x.cuda() for x in s2s.encoder.embs.values()]
+    [x.cuda() for x in s2s.decoder.embs.values()]
 
     sw = SummaryWriter(
         log_dir=os.path.join(get_tensorboard_path(), alias + "_" + str(random_seed))
@@ -76,7 +81,7 @@ if __name__ == "__main__":
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
-            batch_size=128,
+            batch_size=32,
             forecast_horizon=7,
             shuffle=True,
             shuffle_present=False,
@@ -86,6 +91,10 @@ if __name__ == "__main__":
             c,
             (numeric_time_batch, cat_time_batch, cat_static_batch, target),
         ) in enumerate(batcher_dev):
+            numeric_time_batch = numeric_time_batch.cuda()
+            cat_time_batch = cat_time_batch.cuda()
+            cat_static_batch = cat_static_batch.cuda()
+            target = target.cuda()
             loss, forecast = s2s.loss(
                 x_num_time=numeric_time_batch,
                 x_cat_time=cat_time_batch,
@@ -111,7 +120,10 @@ if __name__ == "__main__":
             c,
             (numeric_time_batch, cat_time_batch, cat_static_batch, target),
         ) in enumerate(batcher_train):
-
+            numeric_time_batch = numeric_time_batch.cuda()
+            cat_time_batch = cat_time_batch.cuda()
+            cat_static_batch = cat_static_batch.cuda()
+            target = target.cuda()
             loss, forecast = s2s.step(
                 x_num_time=numeric_time_batch,
                 x_cat_time=cat_time_batch,
