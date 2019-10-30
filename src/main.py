@@ -65,7 +65,7 @@ if __name__ == "__main__":
     )
     s2s.cuda()
     # TODO: Revise the graph. Why not full conversion?
-    
+
     [x.cuda() for x in s2s.encoder.embs.values()]
     [x.cuda() for x in s2s.decoder.embs.values()]
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
-            batch_size=32,
+            batch_size=128,
             forecast_horizon=7,
             shuffle=True,
             shuffle_present=False,
@@ -102,7 +102,7 @@ if __name__ == "__main__":
                 cat_static_names=cat_static_feats,
                 target=target,
             )
-            loss_dev += loss
+            loss_dev += loss.data.cpu().numpy()
         sw.add_scalar("validation/epoch/loss", loss_dev / c, epoch)
 
         #! Train
@@ -134,5 +134,5 @@ if __name__ == "__main__":
             global_step += 1
             sw.add_scalar("train/in-batch/loss", loss, global_step)
 
-            loss_train += loss
+            loss_train += loss.data.cpu().numpy()
         sw.add_scalar("train/epoch/loss", loss_train / c, epoch)
