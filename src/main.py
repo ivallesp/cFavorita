@@ -23,13 +23,11 @@ import numpy as np
 
 from src.architecture import Seq2Seq
 
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 SAMPLE = False
 
 if __name__ == "__main__":
     alias = "test"
-    random_seat = 655321
+    random_seed = 655321
 
     # Load data
     df_master = FactoryLoader().load("master", sample=SAMPLE)
@@ -91,6 +89,7 @@ if __name__ == "__main__":
             c,
             (numeric_time_batch, cat_time_batch, cat_static_batch, target),
         ) in enumerate(batcher_dev):
+
             numeric_time_batch = numeric_time_batch.cuda()
             cat_time_batch = cat_time_batch.cuda()
             cat_static_batch = cat_static_batch.cuda()
