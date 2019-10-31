@@ -13,14 +13,16 @@ from src.common_paths import get_tensorboard_path
 from tensorboardX import SummaryWriter
 from src.architecture import Seq2Seq
 
-SAMPLE = False
 
 if __name__ == "__main__":
-    alias = "test"
-    random_seed = 655321
+    config = get_custom_project_config()
+    alias = config["alias"]
+    random_seed = config["random_seed"]
+    sample = config["sample"]
+    cuda = config["cuda"]
 
-    # Load data
-    df_master = FactoryLoader().load("master", sample=SAMPLE)
+    # Load data dependent on time
+    df_master = FactoryLoader().load("master", sample=sample)
     df_master = get_records_cube_from_df(df=df_master)
     cat_cardinalities_time = {
         col: len(np.unique(df_master[col]))
@@ -28,7 +30,8 @@ if __name__ == "__main__":
         if col in categorical_feats
     }
 
-    df_master_static = FactoryLoader().load("master_timeless", sample=SAMPLE)
+    # Load static data
+    df_master_static = FactoryLoader().load("master_timeless", sample=sample)
     df_master_static = df_master_static.to_records()
     cat_cardinalities_timeless = {
         col: len(np.unique(df_master_static[col]))
