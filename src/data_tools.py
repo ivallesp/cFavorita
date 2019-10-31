@@ -569,6 +569,7 @@ def get_batches_generator(
     forecast_horizon=7,
     shuffle=True,
     shuffle_present=True,
+    cuda=False,
 ):
     from src.constants import (
         numeric_feats,
@@ -634,4 +635,11 @@ def get_batches_generator(
         cat_time_batch = torch.from_numpy(cat_time_batch).long()
         cat_static_batch = torch.from_numpy(cat_static_batch).long()
         target = torch.from_numpy(target)
+
+        # Move to cuda if required
+        if cuda:
+            numeric_time_batch.cuda()
+            cat_time_batch.cuda()
+            cat_static_batch.cuda()
+            target.cuda()
         yield numeric_time_batch, cat_time_batch, cat_static_batch, target

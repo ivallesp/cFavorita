@@ -12,17 +12,24 @@ class Seq2Seq(nn.Module):
         cardinalities_static,
         n_forecast_timesteps,
         lr,
+        cuda,
     ):
         super().__init__()
         self.encoder = Encoder(
             n_num_time_feats=n_num_time_feats,
             categorical_cardinalities=cardinalities_time,
+            cuda=cuda,
         )
         self.decoder = Decoder(
             n_forecast_timesteps=n_forecast_timesteps,
             categorical_cardinalities=cardinalities_static,
+            cuda=cuda,
         )
         self.optimizer = torch.optim.Adam(params=self.parameters(), lr=lr)
+        if cuda:
+            self.cuda()
+            [x.cuda() for x in self.encoder.embs.values()]
+            [x.cuda() for x in self.decoder.embs.values()]
 
     def forward(
         self, x_num_time, x_cat_time, x_cat_static, cat_time_names, cat_static_names
@@ -86,8 +93,9 @@ def torch_rmse(actual, forecast):
 
 
 class Encoder(nn.Module):
-    def __init__(self, n_num_time_feats, categorical_cardinalities):
+    def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
         super().__init__()
+        self.cuda_ = cuda
         self.embs = {}
         for cat in categorical_cardinalities:
             self.embs[cat] = nn.Embedding(
@@ -111,8 +119,9 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, n_forecast_timesteps, categorical_cardinalities):
+    def __init__(self, n_forecast_timesteps, categorical_cardinalities, cuda):
         super().__init__()
+        self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
         self.n_recurrent_cells = 128
         self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
@@ -158,7 +167,9 @@ class Decoder(nn.Module):
 
         input_decoder = torch.zeros(
             self.n_forecast_timesteps, context_thought[0].shape[1], 1
-        ).cuda()  # TODO: Parametrize
+        )
+        if self.cuda_:
+            input_decoder.cuda()
         input_decoder[0, :, :] = 1  # GO!
         output, _ = self.rnn_decoder(input_decoder, context_thought)
         h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])

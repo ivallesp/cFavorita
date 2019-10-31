@@ -45,26 +45,24 @@ if __name__ == "__main__":
     cat_time_feats = np.intersect1d(categorical_feats, df_master.dtype.names)
     cat_static_feats = np.intersect1d(categorical_feats, df_master_static.dtype.names)
 
+    # Model delfinition
     s2s = Seq2Seq(
         n_num_time_feats=len(num_time_feats),
         cardinalities_time=cat_cardinalities_time,
         cardinalities_static=cat_cardinalities_timeless,
         n_forecast_timesteps=7,
         lr=1e-4,
+        cuda=cuda,
     )
-    s2s.cuda()
-    # TODO: Revise the graph. Why not full conversion?
 
-    [x.cuda() for x in s2s.encoder.embs.values()]
-    [x.cuda() for x in s2s.decoder.embs.values()]
-
+    # Define summary writer
     sw = SummaryWriter(
         log_dir=os.path.join(get_tensorboard_path(), alias + "_" + str(random_seed))
     )
 
     global_step = 0
     for epoch in range(1000):  #  Epochs loop
-        #! Validation
+        # ! Validation phase
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
@@ -72,21 +70,14 @@ if __name__ == "__main__":
             forecast_horizon=7,
             shuffle=True,
             shuffle_present=False,
+            cuda=cuda,
         )
         loss_dev = 0
-        for (
-            c,
-            (numeric_time_batch, cat_time_batch, cat_static_batch, target),
-        ) in enumerate(batcher_dev):
-
-            numeric_time_batch = numeric_time_batch.cuda()
-            cat_time_batch = cat_time_batch.cuda()
-            cat_static_batch = cat_static_batch.cuda()
-            target = target.cuda()
+        for (c, (ntb, ctb, csb, target)) in enumerate(batcher_dev):
             loss, forecast = s2s.loss(
-                x_num_time=numeric_time_batch,
-                x_cat_time=cat_time_batch,
-                x_cat_static=cat_static_batch,
+                x_num_time=ntb,
+                x_cat_time=ctb,
+                x_cat_static=csb,
                 cat_time_names=cat_time_feats,
                 cat_static_names=cat_static_feats,
                 target=target,
@@ -94,7 +85,7 @@ if __name__ == "__main__":
             loss_dev += loss.data.cpu().numpy()
         sw.add_scalar("validation/epoch/loss", loss_dev / c, epoch)
 
-        #! Train
+        # ! Training phase
         batcher_train = get_batches_generator(
             df_time=df_master[:, :-7],
             df_static=df_master_static,
@@ -102,20 +93,14 @@ if __name__ == "__main__":
             forecast_horizon=7,
             shuffle=True,
             shuffle_present=True,
+            cuda=cuda,
         )
         loss_train = 0
-        for (
-            c,
-            (numeric_time_batch, cat_time_batch, cat_static_batch, target),
-        ) in enumerate(batcher_train):
-            numeric_time_batch = numeric_time_batch.cuda()
-            cat_time_batch = cat_time_batch.cuda()
-            cat_static_batch = cat_static_batch.cuda()
-            target = target.cuda()
+        for (c, (ntb, ctb, csb, target)) in enumerate(batcher_train):
             loss, forecast = s2s.step(
-                x_num_time=numeric_time_batch,
-                x_cat_time=cat_time_batch,
-                x_cat_static=cat_static_batch,
+                x_num_time=ntb,
+                x_cat_time=ctb,
+                x_cat_static=csb,
                 cat_time_names=cat_time_feats,
                 cat_static_names=cat_static_feats,
                 target=target,
