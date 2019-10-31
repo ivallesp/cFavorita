@@ -12,7 +12,10 @@ from src.general_utilities import get_custom_project_config
 from src.common_paths import get_tensorboard_path
 from tensorboardX import SummaryWriter
 from src.architecture import Seq2Seq
+import logging.config
 
+logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     config = get_custom_project_config()

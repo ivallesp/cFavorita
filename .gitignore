@@ -1,15 +1,33 @@
+# IDEs folders
 .idea
+.vscode
+
+# Data
 *.csv
 data
-.venv
-Notebooks
-__pycache__
-tests/__pycache__
-*.pyc
-terraform
-.DS_Store
-.vscode
 *.zip
-settings.json
+
+# Virtual environment
+.venv
+
+# Analysis folders
+Notebooks
+
+# Garbage
+__pycache__
+*.pyc
+.DS_Store
+
+# Terraform deploy scriots
+terraform
 *.tfevents*
+
+# Machine specific settings
+settings.json
+
+# Casual todo lists
 *.todo
+
+# Logging folders
+logs
+!logs/.gitkeep
