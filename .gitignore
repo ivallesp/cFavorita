@@ -12,3 +12,4 @@ terraform
 *.zip
 settings.json
 *.tfevents*
+*.todo
