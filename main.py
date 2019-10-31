@@ -39,11 +39,7 @@ if __name__ == "__main__":
         if col in categorical_feats
     }
 
-    cat_cardinalities = dict(
-        list(cat_cardinalities_time.items()) + list(cat_cardinalities_timeless.items())
-    )
-
-    # Model definition
+    # Feature groups definitions
     num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)
     num_static_feats = np.intersect1d(numeric_feats, df_master_static.dtype.names)
     cat_time_feats = np.intersect1d(categorical_feats, df_master.dtype.names)
