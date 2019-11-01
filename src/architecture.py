@@ -28,8 +28,6 @@ class Seq2Seq(nn.Module):
         self.optimizer = torch.optim.Adam(params=self.parameters(), lr=lr)
         if cuda:
             self.cuda()
-            [x.cuda() for x in self.encoder.embs.values()]
-            [x.cuda() for x in self.decoder.embs.values()]
 
     def forward(
         self, x_num_time, x_cat_time, x_cat_static, cat_time_names, cat_static_names
@@ -103,6 +101,8 @@ class Encoder(nn.Module):
                 embedding_dim=embedding_sizes[cat],
                 scale_grad_by_freq=False,
             )
+            # Register the parameter for updating it (bc. not set as attribute directly)
+            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         input_sz = int(embs_sz + n_num_time_feats)
         self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
@@ -133,6 +133,9 @@ class Decoder(nn.Module):
                 embedding_dim=embedding_sizes[cat],
                 scale_grad_by_freq=False,
             )
+            # Register the parameter for updating it (bc. not set as attribute directly)
+            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
+
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         thought_sz = self.n_recurrent_cells * 2
         context_thought_sz = thought_sz + embs_sz
