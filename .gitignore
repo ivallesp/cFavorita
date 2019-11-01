@@ -35,3 +35,6 @@ logs/*
 # Model serialization folder
 models/*
 !models/.gitkeep
+
+# Exclude machine-specific settings
+settings.json
