@@ -1,7 +1,13 @@
 import torch
+import shutil
+import os
 from torch import nn
 import numpy as np
 from src.constants import embedding_sizes
+from src.common_paths import get_model_path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Seq2Seq(nn.Module):
@@ -13,8 +19,10 @@ class Seq2Seq(nn.Module):
         n_forecast_timesteps,
         lr,
         cuda,
+        name,
     ):
         super().__init__()
+        self.name = name
         self.encoder = Encoder(
             n_num_time_feats=n_num_time_feats,
             categorical_cardinalities=cardinalities_time,
@@ -82,6 +90,45 @@ class Seq2Seq(nn.Module):
         loss.backward()
         self.optimizer.step()
         return loss, y_hat
+
+    def save_checkpoint(self, epoch, global_step, best_loss, is_best=False):
+        # https://pytorch.org/tutorials/beginner/saving_loading_models.html
+        state = {
+            "model_params": self.state_dict(),
+            "opt_params": self.optimizer.state_dict(),
+            "epoch": epoch,
+            "global_step": global_step,
+            "best_loss": best_loss,
+        }
+        path = get_model_path(alias=self.name)
+        filepath = os.path.join(path, "last.dat")
+        torch.save(state, filepath)
+        if is_best:
+            filepath_best = os.path.join(path, "best.dat")
+            shutil.copyfile(filepath, filepath_best)
+
+    def load_checkpoint(self, best=False):
+        path = get_model_path(alias=self.name)
+        if best:
+            filepath = os.path.join(path, "best.dat")
+        else:
+            filepath = os.path.join(path, "last.dat")
+        if os.path.exists(filepath):
+            logger.info(f"Checkpoint found! Loading {filepath}")
+            state = torch.load(filepath)
+            self.load_state_dict(state["model_params"])
+            self.optimizer.load_state_dict(state["opt_params"])
+            epoch = state["epoch"]
+            global_step = state["global_step"]
+            best_loss = state["best_loss"]
+            logger.info(f"Checkpoint loaded successfully.")
+        else:
+            logger.warn(f"Checkpoint not found at {filepath}. Training a new model...")
+            epoch = 0
+            global_step = 0
+            best_loss = np.Inf
+        logger.info(f"Model at ep={epoch}, g_step={global_step}, best_loss={best_loss}")
+        return epoch, global_step, best_loss
 
 
 def torch_rmse(actual, forecast):
