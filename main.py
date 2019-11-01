@@ -50,6 +50,8 @@ if __name__ == "__main__":
     }
     logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
 
+    # TODO: Check and delete item_nbr and store_number from time dataset
+
     # Feature groups definitions
     num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)
     num_static_feats = np.intersect1d(numeric_feats, df_master_static.dtype.names)
@@ -69,8 +71,10 @@ if __name__ == "__main__":
         n_forecast_timesteps=7,
         lr=1e-4,
         cuda=cuda,
+        name=alias,
     )
     logging.info("Architecture built successfully!")
+    epoch, global_step, best_loss = s2s.load_checkpoint(best=False)
 
     # Define summary writer
     summaries_path = os.path.join(
@@ -80,9 +84,9 @@ if __name__ == "__main__":
     logging.info(f"Summary writer instantiated at {summaries_path}")
 
     logging.info(f"Starting the training loop!")
-    global_step = 0
-    for epoch in range(1000):  #  Epochs loop
+    for epoch in range(epoch, 1000):  #  Epochs loop
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
+        is_best = False
         # ! Validation phase
         batcher_dev = get_batches_generator(
             df_time=df_master,
@@ -109,6 +113,15 @@ if __name__ == "__main__":
             logger.debug(f"Dev batch loss = {loss}")
         sw.add_scalar("validation/epoch/loss", loss_dev / c, epoch)
         logging.info(f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev}")
+
+        # ! Model serialization
+        if loss_dev < best_loss:
+            is_best = True
+            best_loss = loss_dev
+        s2s.save_checkpoint(
+            epoch=epoch, best_loss=best_loss, is_best=is_best, global_step=global_step
+        )
+
         # ! Training phase
         logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
         batcher_train = get_batches_generator(
