@@ -93,3 +93,12 @@ def get_tensorboard_path():
 @_is_input_path
 def get_log_config_filepath():
     return "logging_config.ini"
+
+
+@_is_output_path
+def get_model_path(alias):
+    """
+    Generates the path where the tensorboard logs will be stored
+    :return: data folder path (str)
+    """
+    return os.path.join("models", alias)
