@@ -29,5 +29,9 @@ settings.json
 *.todo
 
 # Logging folders
-logs
+logs/*
 !logs/.gitkeep
+
+# Model serialization folder
+models/*
+!models/.gitkeep
