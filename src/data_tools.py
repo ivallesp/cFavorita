@@ -4,8 +4,7 @@ import sys
 import inspect
 import gc
 import random
-import datetime
-import random
+import logging
 import torch
 
 from itertools import zip_longest
@@ -20,6 +19,8 @@ from src.constants import (
     batch_time_normalizable_feats,
     embedding_sizes,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def recarray_to_array(r, dtype):
@@ -65,9 +66,10 @@ def reduce_mem_usage(df, int_cast=True, obj_to_category=False, subset=None):
     :param subset: subset of columns to analyse (list)
     :return: dataset with the column dtypes adjusted (pd.DataFrame)
     """
+    logger.info("Reducing the memory of the dataframe...")
     start_mem = df.memory_usage().sum() / 1024 ** 2
     gc.collect()
-    print("Memory usage of dataframe is {:.2f} MB".format(start_mem))
+    logger.info("Memory usage of dataframe is {:.2f} MB".format(start_mem))
 
     cols = subset if subset is not None else df.columns.tolist()
 
@@ -127,8 +129,8 @@ def reduce_mem_usage(df, int_cast=True, obj_to_category=False, subset=None):
             df[col] = df[col].astype("category")
     gc.collect()
     end_mem = df.memory_usage().sum() / 1024 ** 2
-    print("Memory usage after optimization is: {:.3f} MB".format(end_mem))
-    print("Decreased by {:.1f}%".format(100 * (start_mem - end_mem) / start_mem))
+    logger.info("Memory usage after optimization is: {:.3f} MB".format(end_mem))
+    logger.info("Decreased by {:.1f}%".format(100 * (start_mem - end_mem) / start_mem))
 
     return df
 
@@ -195,6 +197,7 @@ class FactoryLoader:
         self.getter = None
 
     def load(self, data_source_name, *args, **kwargs):
+        logger.info(f"Loading {data_source_name}...")
         if not data_source_name in self.factory_dict:
             raise ValueError(
                 f"Data source name provided ('{data_source_name}') has not been recognized as a valid name."
@@ -424,10 +427,10 @@ class MasterDataGetter(DataGetter):
         df_main = self.fl_main.load("train")
 
         if sample:
-            print("Sampling!")
+            logger.info("Sampling dataframe...")
             df_main = df_main[df_main.date > int("2016-08-01".replace("-", ""))]
 
-        print("Data loaded successfully!")
+        logger.info("Dataset loaded successfully!")
 
         # Performing and merging Cartesian
         df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
@@ -444,46 +447,46 @@ class MasterDataGetter(DataGetter):
         df = df.merge(df_holidays, on=self.fl_holidays.getter.keys, how="left")
         del df_holidays
         gc.collect()
-        print("Holidays merged successfully!", df.shape)
+        logger.info("Holidays merged successfully!", df.shape)
 
         # Merge transactions
         df = df.merge(df_transactions, on=self.fl_transactions.getter.keys, how="left")
         del df_transactions
         gc.collect()
-        print("Transactions merged successfully!", df.shape)
+        logger.info("Transactions merged successfully!", df.shape)
 
         # Merge oil
         df = df.merge(df_oil, on=self.fl_oil.getter.keys, how="left")
         del df_oil
         gc.collect()
-        print("Oil merged successfully!", df.shape)
+        logger.info("Oil merged successfully!", df.shape)
         return df
 
     def process(self, df):
         df = df.fillna(0)
-        print(
+        logger.info(
             "NA Data filled with zeros successfully! Reducing the size of the dataset..."
         )
         df = reduce_mem_usage(df)
-        print("Calculating year var...")
+        logger.info("Calculating year var...")
         df["year"] = (
             df["date"].astype("str").str[0:4].astype(int) - 2015
         ) / 2  # Center and scale
-        print("Calculating month var...")
+        logger.info("Calculating month var...")
         df["month"] = (
             df["date"].astype("str").str[4:6].astype(int) - 6.5
         ) / 5.5  # Center and scale
-        print("Calculating day var...")
+        logger.info("Calculating day var...")
         df["day"] = (
             df["date"].astype("str").str[6:].astype(int) - 16
         ) / 15  # Center and scale
-        print("Calculating day of week var...")
+        logger.info("Calculating day of week var...")
         df["dayofweek"] = (
             pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek - 3
         ) / 3  # Center and scale
         for var in categorical_feats:
             if var in df.columns:
-                print("Calculating {} categorical var...".format(var))
+                logger.info("Calculating {} categorical var...".format(var))
                 df[var] = pd.Categorical(df[var]).codes
         df["dcoilwtico"] = (df["dcoilwtico"] - 50) / 50
 
@@ -505,10 +508,10 @@ class MasterTimelessGetter(DataGetter):
         df_main = self.fl_main.load("train")
 
         if sample:
-            print("Sampling!")
+            logger.info("Sampling dataframe...")
             df_main = df_main[df_main.date > int("2016-08-01".replace("-", ""))]
 
-        print("Data loaded successfully!")
+        logger.info("Dataframe loaded successfully!")
 
         # Performing and merging Cartesian
         df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
@@ -521,24 +524,24 @@ class MasterTimelessGetter(DataGetter):
         df = df.merge(df_stores, on=self.fl_stores.getter.keys, how="left")
         del df_stores
         gc.collect()
-        print("Stores merged successfully!", df.shape)
+        logger.info("Stores merged successfully!", df.shape)
 
         # Merge items
         df = df.merge(df_items, on=self.fl_items.getter.keys, how="left")
         del df_items
         gc.collect()
-        print("Items merged successfully!", df.shape)
+        logger.info("Items merged successfully!", df.shape)
         return df
 
     def process(self, df):
         df = reduce_mem_usage(df)
         df = df.fillna(0)
-        print(
+        logger.info(
             "NA Data filled with zeros successfully! Reducing the size of the dataset..."
         )
         for var in categorical_feats:
             if var in df.columns:
-                print("Calculating {} categorical var...".format(var))
+                logger.info("Calculating {} categorical var...".format(var))
                 df[var] = pd.Categorical(df[var]).codes
         df = reduce_mem_usage(df)
         return df
@@ -579,9 +582,9 @@ def get_batches_generator(
         embedding_sizes,
     )
 
-    print(datetime.datetime.now().isoformat(), "Shuffling...")
+    logger.info("Shuffling dataframe...")
     df_time, df_static = shuffle_multiple(df_time, df_static)
-    print(datetime.datetime.now().isoformat(), "Shuffle successful!")
+    logger.info("Shuffle successful!")
 
     # Assure perfect alignment
     case_static = df_static[["store_nbr", "item_nbr"]]

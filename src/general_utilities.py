@@ -1,6 +1,8 @@
 import json
 import toml
+import logging
 
+logger = logging.getLogger(__name__)
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
@@ -42,3 +44,19 @@ def get_custom_project_config():
     Loads the custom configuration from the pyproject.toml file
     """
     return toml.load("pyproject.toml")["custom"]
+
+def log_config(config):
+    alias = config["alias"]
+    random_seed = config["random_seed"]
+    sample = config["sample"]
+    cuda = config["cuda"]
+    logger.info(f"Running cFavorita project with alias {alias}")
+    logger.info(f"The experiment random seed selected is {random_seed}")
+    if sample:
+        logger.info(f"A sample of the data is going to be drawn!")
+    else:
+        logger.info(f"No sample was configured. Using the full data.")
+    if cuda:
+        logger.info(f"Device used for computation: GPU")
+    else:
+        logger.info(f"Device used for computation: GPU")
