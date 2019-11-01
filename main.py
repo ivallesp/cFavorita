@@ -111,7 +111,8 @@ if __name__ == "__main__":
             loss = loss.data.cpu().numpy()
             loss_dev += loss
             logger.debug(f"Dev batch loss = {loss}")
-        sw.add_scalar("validation/epoch/loss", loss_dev / c, epoch)
+        loss_dev /= c
+        sw.add_scalar("validation/epoch/loss", loss_dev, epoch)
         logging.info(f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev}")
 
         # ! Model serialization
@@ -149,6 +150,10 @@ if __name__ == "__main__":
             loss = loss.data.cpu().numpy()
             loss_train += loss
             logger.debug(f"Train batch pre-step loss = {loss}")
-        sw.add_scalar("train/epoch/loss", loss_train / c, epoch)
-        logging.info(f"EPOCH: {epoch:06d} | Training finished. Loss = {loss_train}")
-        logging.info(f"EPOCH: {epoch:06d} finished. Global steps: {global_step}")
+
+        loss_train /= c
+        sw.add_scalar("train/epoch/loss", loss_train, epoch)
+        logging.info(
+            f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train}. "
+            f"Global steps: {global_step}"
+        )

@@ -447,19 +447,19 @@ class MasterDataGetter(DataGetter):
         df = df.merge(df_holidays, on=self.fl_holidays.getter.keys, how="left")
         del df_holidays
         gc.collect()
-        logger.info("Holidays merged successfully!", df.shape)
+        logger.info(f"Holidays merged successfully! shape={df.shape}")
 
         # Merge transactions
         df = df.merge(df_transactions, on=self.fl_transactions.getter.keys, how="left")
         del df_transactions
         gc.collect()
-        logger.info("Transactions merged successfully!", df.shape)
+        logger.info(f"Transactions merged successfully! shape={df.shape}")
 
         # Merge oil
         df = df.merge(df_oil, on=self.fl_oil.getter.keys, how="left")
         del df_oil
         gc.collect()
-        logger.info("Oil merged successfully!", df.shape)
+        logger.info(f"Oil merged successfully! shape={df.shape}")
         return df
 
     def process(self, df):
@@ -524,13 +524,13 @@ class MasterTimelessGetter(DataGetter):
         df = df.merge(df_stores, on=self.fl_stores.getter.keys, how="left")
         del df_stores
         gc.collect()
-        logger.info("Stores merged successfully!", df.shape)
+        logger.info("Stores merged successfully! shape={df.shape}")
 
         # Merge items
         df = df.merge(df_items, on=self.fl_items.getter.keys, how="left")
         del df_items
         gc.collect()
-        logger.info("Items merged successfully!", df.shape)
+        logger.info("Items merged successfully! shape={df.shape}")
         return df
 
     def process(self, df):
