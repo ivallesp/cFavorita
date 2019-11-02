@@ -33,5 +33,8 @@ build-backend = "poetry.masonry.api"
 [custom]
 alias = "test"
 cuda = true
-sample = false
+sample = true
 random_seed = 655321
+batch_size = 128
+forecast_horizon = 15
+learning_rate = 0.0001

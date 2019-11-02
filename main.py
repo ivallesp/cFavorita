@@ -1,4 +1,5 @@
 import os
+import wandb
 import numpy as np
 
 from src.data_tools import (
@@ -9,7 +10,11 @@ from src.data_tools import (
 
 from src.constants import numeric_feats, categorical_feats
 from src.general_utilities import get_custom_project_config, log_config
-from src.common_paths import get_tensorboard_path, get_log_config_filepath
+from src.common_paths import (
+    get_tensorboard_path,
+    get_log_config_filepath,
+    get_model_path,
+)
 from tensorboardX import SummaryWriter
 from src.architecture import Seq2Seq
 import logging
@@ -18,13 +23,19 @@ import logging.config
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
+wandb.init("cFavorita")
+
 if __name__ == "__main__":
     config = get_custom_project_config()
     alias = config["alias"]
     random_seed = config["random_seed"]
     sample = config["sample"]
     cuda = config["cuda"]
+    batch_size = config["batch_size"]
+    forecast_horizon = config["forecast_horizon"]
+    learning_rate = config["learning_rate"]
     log_config(config)
+    wandb.config.update(config)
 
     # Load data dependent on time
     logger.info("Generating time-dependent dataset...")
@@ -68,13 +79,14 @@ if __name__ == "__main__":
         n_num_time_feats=len(num_time_feats),
         cardinalities_time=cat_cardinalities_time,
         cardinalities_static=cat_cardinalities_timeless,
-        n_forecast_timesteps=7,
-        lr=1e-4,
+        n_forecast_timesteps=forecast_horizon,
+        lr=learning_rate,
         cuda=cuda,
         name=alias,
     )
     logging.info("Architecture built successfully!")
     epoch, global_step, best_loss = s2s.load_checkpoint(best=False)
+    wandb.watch(s2s)
 
     # Define summary writer
     summaries_path = os.path.join(get_tensorboard_path(), alias)
@@ -89,8 +101,8 @@ if __name__ == "__main__":
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
-            batch_size=128,
-            forecast_horizon=7,
+            batch_size=batch_size,
+            forecast_horizon=forecast_horizon,
             shuffle=True,
             shuffle_present=False,
             cuda=cuda,
@@ -124,10 +136,10 @@ if __name__ == "__main__":
         # ! Training phase
         logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
         batcher_train = get_batches_generator(
-            df_time=df_master[:, :-7],
+            df_time=df_master[:, :-forecast_horizon],
             df_static=df_master_static,
-            batch_size=128,
-            forecast_horizon=7,
+            batch_size=batch_size,
+            forecast_horizon=forecast_horizon,
             shuffle=True,
             shuffle_present=True,
             cuda=cuda,
@@ -155,3 +167,10 @@ if __name__ == "__main__":
             f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train}. "
             f"Global steps: {global_step}"
         )
+        wandb.log({"loss_dev": loss_dev, "loss_train": loss_train})
+
+        if epoch % 10 == 0:  # Save to wandb
+            path = get_model_path(alias=alias)
+            wandb.save(os.path.join(path, "*"))
+            wandb.save(os.path.join(get_log_config_filepath(), "*"))
+            wandb.save(os.path.join(get_tensorboard_path(), "*"))
