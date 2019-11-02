@@ -19,7 +19,9 @@ __pycache__
 .DS_Store
 
 # Terraform deploy scriots
-terraform
+terraform/*
+!terraform/*.tf
+!terraform/*.json
 *.tfevents*
 
 # Machine specific settings
