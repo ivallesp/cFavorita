@@ -85,6 +85,9 @@ resource "aws_instance" "example" {
               EOF
     ]
   }
+  provisioner "local-exec" {
+    command = "sed -i.bk '/^Host burner/,/^\\[/{s/^Hostname.*/Hostname ${aws_instance.example.public_dns}/}' ~/.ssh/config"
+  }
 }
 
 resource "aws_ebs_volume" "datadrive" {
@@ -129,38 +132,41 @@ resource "aws_volume_attachment" "ebs_data_att" {
               git remote rm origin
               git remote add origin https://github.com/ivallesp/cFavorita.git
 
+              # S3 sync
               aws s3 sync s3://phd-cfavorita/models /data/cFavorita/models
               aws s3 sync s3://phd-cfavorita/logs_tensorboard /data/cFavorita/.logs_tensorboard
               (crontab -l ; echo "*/5 * * * * /usr/local/bin/aws s3 sync /data/cFavorita/models s3://phd-cfavorita/models") | sort - | uniq - | crontab -
               (crontab -l ; echo "*/30 * * * * /usr/local/bin/aws s3 sync /data/.logs_tensorboard s3://phd-cfavorita/logs_tensorboard") | sort - | uniq - | crontab -
 
-	            cd /data/cFavorita
               echo '{ "paths": {"data":  "data", "tensorboard": "/data/.logs_tensorboard"}}' > ./settings.json
 
+              # Set up the environment
               eval "$(~/.pyenv/bin/pyenv init -)"
               ~/.pyenv/bin/pyenv install "$(cat .python-version)"
               ~/.pyenv/bin/pyenv local "$(cat .python-version)"
               cd .
               ~/.poetry/bin/poetry install
 
+              # Download the data
 	            mkdir data
 	            cd data
 	            /data/cFavorita/.venv/bin/kaggle competitions download -c favorita-grocery-sales-forecasting
               unzip *.zip
 	            7za -y x "*.7z"
 
+              # Setup tmux
+              cd /data/cFavorita
               tmux new -d -s foo -n jupyter
               tmux send-keys -t foo "jupyter notebook" ENTER
               tmux send-keys -t foo "source ./.venv/bin/activate" ENTER
-
               tmux new-window -t foo -n tensorboard
+              tmux send-keys -t foo "source ./.venv/bin/activate" ENTER
               tmux send-keys -t foo "tensorboard --logdir /data/.logs_tensorboard" ENTER
               tmux new-window -t foo -n htop
               tmux send-keys -t foo "htop" ENTER
               tmux new-window -t foo -n nvidia-smi
               tmux send-keys -t foo "watch nvidia-smi" ENTER
               tmux new-window -t foo -n RUN
-              tmux send-keys -t foo "cd /data/cFavorita" ENTER
               tmux send-keys -t foo "source ./.venv/bin/activate" ENTER
               tmux send-keys -t foo "python main.py" ENTER
               EOF
@@ -195,7 +201,6 @@ resource "aws_volume_attachment" "ebs_swap_att" {
     ]
   }
 }
-
 
 resource "aws_s3_bucket" "main" {
   acl = "private"
