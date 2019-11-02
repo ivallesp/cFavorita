@@ -59,6 +59,11 @@ resource "aws_instance" "example" {
     destination = "~/.aws/credentials"
   }
 
+  provisioner "file" {
+    source = "~/.netrc"
+    destination = "~/.netrc"
+  }
+
   provisioner "remote-exec" {
     inline = [<<EOF
               sudo fuser -vk  /var/lib/dpkg/lock
@@ -129,6 +134,7 @@ resource "aws_volume_attachment" "ebs_data_att" {
 	            ssh-add ~/ssh_keys/cfavorita_github_key
 	            git clone git@github.com:ivallesp/cFavorita.git
               cd cFavorita
+              git checkout feat/wandb # ! Change at integration time
               git remote rm origin
               git remote add origin https://github.com/ivallesp/cFavorita.git
 
