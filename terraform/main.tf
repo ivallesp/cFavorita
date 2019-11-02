@@ -13,8 +13,6 @@ resource "aws_security_group" "ssh-from-amznet" {
     prefix_list_ids = var.amznet_prefix
   }
 
-
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -67,16 +65,16 @@ resource "aws_instance" "example" {
               sudo rm /var/lib/dpkg/lock
               sudo dpkg --configure -a
               sudo apt update
-              sudo apt --yes install p7zip-full libffi-dev python python-pip make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git awscli unzip htop
+              sudo apt --yes install p7zip-full libffi-dev python python-pip make \
+              build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+              libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils \
+              tk-dev libffi-dev liblzma-dev python-openssl git awscli unzip htop
 
               # Install pyenv dependencies
               curl https://pyenv.run | bash
               echo 'export PATH="/home/ubuntu/.pyenv/bin:$PATH"' >> ~/.bashrc
               echo 'eval "$(pyenv init -)"' >> ~/.bashrc
               eval "$(~/.pyenv/bin/pyenv init -)"
-
-              ~/.pyenv/bin/pyenv install 3.7.0
-              ~/.pyenv/bin/pyenv global 3.7.0
 
               cd .
 

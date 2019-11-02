@@ -15,7 +15,7 @@ variable "ec2_instance_type" {
 
 variable "ec2_ami" {
   type    = string
-  default = "ami-0f9cf087c1f27d9b1"
+  default = "ami-09ccc07b3d5df2bc6"
 }
 
 variable "ec2_ssh_key_filepath" {
