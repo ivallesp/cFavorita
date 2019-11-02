@@ -77,9 +77,7 @@ if __name__ == "__main__":
     epoch, global_step, best_loss = s2s.load_checkpoint(best=False)
 
     # Define summary writer
-    summaries_path = os.path.join(
-        get_tensorboard_path(), alias + "_" + str(random_seed)
-    )
+    summaries_path = os.path.join(get_tensorboard_path(), alias)
     sw = SummaryWriter(log_dir=summaries_path)
     logging.info(f"Summary writer instantiated at {summaries_path}")
 
