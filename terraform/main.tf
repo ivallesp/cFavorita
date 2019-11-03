@@ -66,14 +66,17 @@ resource "aws_instance" "example" {
 
   provisioner "remote-exec" {
     inline = [<<EOF
+              sleep 60
+
               sudo fuser -vk  /var/lib/dpkg/lock
               sudo rm /var/lib/dpkg/lock
               sudo dpkg --configure -a
+
+              sleep 10
               sudo apt update
-              sudo apt --yes install p7zip-full libffi-dev python python-pip make \
-              build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
-              libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils \
-              tk-dev libffi-dev liblzma-dev python-openssl git awscli unzip htop
+
+              sleep 10
+              sudo apt --yes install p7zip-full libffi-dev python python-pip make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git awscli unzip htop
 
               # Install pyenv dependencies
               curl https://pyenv.run | bash
