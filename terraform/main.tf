@@ -130,7 +130,7 @@ resource "aws_volume_attachment" "ebs_data_att" {
               git remote add origin https://github.com/ivallesp/cFavorita.git
 
               aws s3 sync s3://phd-cfavorita/models /data/cFavorita/models
-              aws s3 sync s3://phd-cfavorita/logs_tensorboard /data/cFavorita/.logs_tensorboard
+              aws s3 sync s3://phd-cfavorita/logs_tensorboard /data/.logs_tensorboard
               (crontab -l ; echo "*/5 * * * * /usr/local/bin/aws s3 sync /data/cFavorita/models s3://phd-cfavorita/models") | sort - | uniq - | crontab -
               (crontab -l ; echo "*/30 * * * * /usr/local/bin/aws s3 sync /data/.logs_tensorboard s3://phd-cfavorita/logs_tensorboard") | sort - | uniq - | crontab -
 
