@@ -219,7 +219,7 @@ class Decoder(nn.Module):
             self.n_forecast_timesteps, context_thought[0].shape[1], 1
         )
         if self.cuda_:
-            input_decoder.cuda()
+            input_decoder = input_decoder.cuda()
         input_decoder[0, :, :] = 1  # GO!
         output, _ = self.rnn_decoder(input_decoder, context_thought)
         h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])
