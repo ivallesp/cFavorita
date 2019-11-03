@@ -641,8 +641,8 @@ def get_batches_generator(
 
         # Move to cuda if required
         if cuda:
-            numeric_time_batch.cuda()
-            cat_time_batch.cuda()
-            cat_static_batch.cuda()
-            target.cuda()
+            numeric_time_batch = numeric_time_batch.cuda()
+            cat_time_batch = cat_time_batch.cuda()
+            cat_static_batch = cat_static_batch.cuda()
+            target = target.cuda()
         yield numeric_time_batch, cat_time_batch, cat_static_batch, target
