@@ -94,7 +94,7 @@ if __name__ == "__main__":
     logging.info(f"Summary writer instantiated at {summaries_path}")
 
     logging.info(f"Starting the training loop!")
-    for epoch in range(epoch, 1000):  #  Epochs loop
+    for epoch in range(epoch, 10000):  #  Epochs loop
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
         # ! Validation phase
@@ -121,7 +121,7 @@ if __name__ == "__main__":
             loss = loss.data.cpu().numpy()
             loss_dev += loss
             logger.debug(f"Dev batch loss = {loss}")
-        loss_dev /= c
+        loss_dev /= c + 1
         sw.add_scalar("validation/epoch/loss", loss_dev, epoch)
         logging.info(f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev}")
 
@@ -161,13 +161,13 @@ if __name__ == "__main__":
             loss_train += loss
             logger.debug(f"Train batch pre-step loss = {loss}")
 
-        loss_train /= c
+        loss_train /= c + 1
         sw.add_scalar("train/epoch/loss", loss_train, epoch)
         logging.info(
             f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train}. "
             f"Global steps: {global_step}"
         )
-        wandb.log({"loss_dev": loss_dev, "loss_train": loss_train})
+        wandb.log({"loss_dev": loss_dev, "loss_train": loss_train, "epoch": epoch})
 
         if epoch % 10 == 0:  # Save to wandb
             path = get_model_path(alias=alias)
