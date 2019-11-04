@@ -137,7 +137,7 @@ resource "aws_volume_attachment" "ebs_data_att" {
 	            ssh-add ~/ssh_keys/cfavorita_github_key
 	            git clone git@github.com:ivallesp/cFavorita.git
               cd cFavorita
-              git checkout feat/wandb # ! Change at integration time
+              git checkout master
               git remote rm origin
               git remote add origin https://github.com/ivallesp/cFavorita.git
 
