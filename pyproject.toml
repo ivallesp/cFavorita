@@ -35,6 +35,6 @@ alias = "test"
 cuda = true
 sample = false
 random_seed = 655321
-batch_size = 32
+batch_size = 128
 forecast_horizon = 15
 learning_rate = 0.001
