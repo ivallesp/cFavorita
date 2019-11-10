@@ -3,6 +3,11 @@ variable "aws_profile" {
   default = "burner"
 }
 
+variable "n_ec2_instances" {
+  type    = number
+  default = 1
+}
+
 variable "aws_region" {
   type    = string
   default = "us-east-1"

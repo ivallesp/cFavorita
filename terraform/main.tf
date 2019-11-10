@@ -23,13 +23,14 @@ resource "aws_security_group" "ssh-from-amznet" {
 
 resource "aws_instance" "example" {
   ami                  = var.ec2_ami
+  count                = var.n_ec2_instances
   instance_type        = var.ec2_instance_type
   security_groups      = [aws_security_group.ssh-from-amznet.name]
   iam_instance_profile = aws_iam_instance_profile.test_profile.name
   key_name             = var.ec2_key_name
 
   connection {
-    host        = aws_instance.example.public_dns
+    host        = self.public_dns
     user        = "ubuntu"
     private_key = file(var.ec2_ssh_key_filepath)
     agent       = true
@@ -95,23 +96,25 @@ resource "aws_instance" "example" {
   }
 
   provisioner "local-exec" {
-    command = "/usr/local/opt/gnu-sed/libexec/gnubin/sed -i.bk '/^Host burner/,/^\\[/{s/^Hostname.*/Hostname ${aws_instance.example.public_dns}/}' ~/.ssh/config"
+    command = "/usr/local/opt/gnu-sed/libexec/gnubin/sed -i.bk '/^Host burner\\_${count.index}/,/^\\[/{s/^Hostname.*/Hostname ${self.public_dns}/}' ~/.ssh/config"
   }
 }
 
 resource "aws_ebs_volume" "datadrive" {
-  availability_zone = aws_instance.example.availability_zone
+  count             = var.n_ec2_instances
+  availability_zone = element(aws_instance.example.*.availability_zone, count.index)
   size              = 1000
 }
 
 resource "aws_volume_attachment" "ebs_data_att" {
   device_name  = "/dev/sdh"
-  volume_id    = aws_ebs_volume.datadrive.id
-  instance_id  = aws_instance.example.id
+  count        = var.n_ec2_instances
+  volume_id    = element(aws_ebs_volume.datadrive.*.id, count.index)
+  instance_id  = element(aws_instance.example.*.id, count.index)
   force_detach = true
   provisioner "remote-exec" {
     connection {
-      host        = aws_instance.example.public_dns
+      host        = element(aws_instance.example.*.public_dns, count.index)
       user        = "ubuntu"
       private_key = file(var.ec2_ssh_key_filepath)
       agent       = true
@@ -185,19 +188,21 @@ resource "aws_volume_attachment" "ebs_data_att" {
 }
 
 resource "aws_ebs_volume" "swapdrive" {
-  availability_zone = aws_instance.example.availability_zone
+  count = var.n_ec2_instances
+  availability_zone = element(aws_instance.example.*.availability_zone, count.index)
   type = "gp2"
   size = 250
 }
 
 resource "aws_volume_attachment" "ebs_swap_att" {
   device_name = "/dev/sds"
-  volume_id = aws_ebs_volume.swapdrive.id
-  instance_id = aws_instance.example.id
+  count = var.n_ec2_instances
+  volume_id = element(aws_ebs_volume.swapdrive.*.id, count.index)
+  instance_id = element(aws_instance.example.*.id, count.index)
   force_detach = true
   provisioner "remote-exec" {
     connection {
-      host = aws_instance.example.public_dns
+      host = element(aws_instance.example.*.public_dns, count.index)
       user = "ubuntu"
       private_key = file(var.ec2_ssh_key_filepath)
       agent = true
@@ -221,7 +226,7 @@ resource "aws_s3_bucket" "main" {
 }
 
 output "ip_address" {
-  value = aws_instance.example.public_dns
+  value = aws_instance.example.*.public_dns
 }
 
 output "s3_bucket" {
