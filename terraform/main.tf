@@ -93,8 +93,9 @@ resource "aws_instance" "example" {
               EOF
     ]
   }
+
   provisioner "local-exec" {
-    command = "sed -i.bk '/^Host burner/,/^\\[/{s/^Hostname.*/Hostname ${aws_instance.example.public_dns}/}' ~/.ssh/config"
+    command = "/usr/local/opt/gnu-sed/libexec/gnubin/sed -i.bk '/^Host burner/,/^\\[/{s/^Hostname.*/Hostname ${aws_instance.example.public_dns}/}' ~/.ssh/config"
   }
 }
 
