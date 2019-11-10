@@ -40,3 +40,6 @@ models/*
 
 # Exclude machine-specific settings
 settings.json
+
+# Weights and biases tool files
+wandb/*
