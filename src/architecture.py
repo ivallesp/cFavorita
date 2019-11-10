@@ -35,6 +35,7 @@ class Seq2Seq(nn.Module):
             categorical_cardinalities=cardinalities_static,
             cuda=cuda,
         )
+        self.initialize_weights()
         self.optimizer = torch.optim.Adam(params=self.parameters(), lr=lr)
         if cuda:
             self.cuda()
@@ -131,6 +132,18 @@ class Seq2Seq(nn.Module):
             best_loss = np.Inf
         logger.info(f"Model at ep={epoch}, g_step={global_step}, best_loss={best_loss}")
         return epoch, global_step, best_loss
+
+    def initialize_weights(self):
+        # https://discuss.pytorch.org/t/initializing-parameters-of-a-multi-layer-lstm/5791
+        for name, param in self.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0.0)
+            elif "weight" in name:
+                nn.init.kaiming_normal_(param)
+            elif "emb" in name:
+                nn.init.kaiming_normal_(param)
+            else:
+                logger.warn(f"Parameter {name} not initialized!")
 
 
 def torch_rmse(actual, forecast):
