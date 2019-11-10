@@ -1,24 +1,24 @@
+import logging
+import logging.config
 import os
-import wandb
-import numpy as np
 
+import numpy as np
+import wandb
+from tensorboardX import SummaryWriter
+
+from src.architecture import Seq2Seq
+from src.common_paths import (
+    get_log_config_filepath,
+    get_model_path,
+    get_tensorboard_path,
+)
+from src.constants import categorical_feats, numeric_feats
 from src.data_tools import (
     FactoryLoader,
     get_batches_generator,
     get_records_cube_from_df,
 )
-
-from src.constants import numeric_feats, categorical_feats
 from src.general_utilities import get_custom_project_config, log_config
-from src.common_paths import (
-    get_tensorboard_path,
-    get_log_config_filepath,
-    get_model_path,
-)
-from tensorboardX import SummaryWriter
-from src.architecture import Seq2Seq
-import logging
-import logging.config
 
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     logging.info(f"Summary writer instantiated at {summaries_path}")
 
     logging.info(f"Starting the training loop!")
-    for epoch in range(epoch, 10000):  #  Epochs loop
+    for epoch in range(epoch, 10000):  # Epochs loop
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
         # ! Validation phase
@@ -108,6 +108,11 @@ if __name__ == "__main__":
             cuda=cuda,
         )
         loss_dev = 0
+        male_dev = 0
+        total_abs_miss_dev = 0
+        total_log_abs_miss_dev = 0
+        total_target_dev = 0
+        total_log_target_dev = 0
         for (c, (ntb, ctb, csb, target)) in enumerate(batcher_dev):
             logger.debug(f"Dev batch {c} generated successfully. Calculating loss...")
             loss, forecast = s2s.loss(
@@ -119,16 +124,36 @@ if __name__ == "__main__":
                 target=target,
             )
             loss = loss.data.cpu().numpy()
+            forecast = forecast.data.cpu().numpy()
+            target = target.data.cpu().numpy()
+            # Log metrics
             loss_dev += loss
-            logger.debug(f"Dev batch loss = {loss}")
+            male_dev += np.mean(np.abs(forecast - target))
+            log_abs_miss = np.abs(forecast - target)
+            total_log_abs_miss_dev += log_abs_miss.sum()
+            total_log_target_dev += target.sum()
+            # Linear metrics
+            forecast = np.expm1(forecast)
+            target = np.expm1(target)
+            abs_miss = np.abs(forecast - target)
+            total_abs_miss_dev += abs_miss.sum()
+            total_target_dev += target.sum()
         loss_dev /= c + 1
+        male_dev /= c + 1
+        log_mape_dev = total_log_abs_miss_dev / total_log_target_dev
+        mape_dev = total_abs_miss_dev / total_target_dev
         sw.add_scalar("validation/epoch/loss", loss_dev, epoch)
-        logging.info(f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev}")
+        sw.add_scalar("validation/epoch/male", male_dev, epoch)
+        sw.add_scalar("validation/epoch/mape", mape_dev, epoch)
+        sw.add_scalar("validation/epoch/log_mape", log_mape_dev, epoch)
+        logging.info(
+            f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev} – "
+            f"MALE = {male_dev} – MAPE = {mape_dev} - MAPLE = {log_mape_dev}"
+        )
 
         # ! Model serialization
         if loss_dev < best_loss:
             is_best = True
-            best_loss = loss_dev
         s2s.save_checkpoint(
             epoch=epoch, best_loss=best_loss, is_best=is_best, global_step=global_step
         )
@@ -145,6 +170,11 @@ if __name__ == "__main__":
             cuda=cuda,
         )
         loss_train = 0
+        male_train = 0
+        total_abs_miss_train = 0
+        total_log_abs_miss_train = 0
+        total_target_train = 0
+        total_log_target_train = 0
         for (c, (ntb, ctb, csb, target)) in enumerate(batcher_train):
             logger.debug(f"Train batch {c} generated successfully. Running step...")
             loss, forecast = s2s.step(
@@ -156,18 +186,50 @@ if __name__ == "__main__":
                 target=target,
             )
             global_step += 1
-            sw.add_scalar("train/in-batch/loss", loss, global_step)
             loss = loss.data.cpu().numpy()
+            forecast = forecast.data.cpu().numpy()
+            target = target.data.cpu().numpy()
+            # Log metrics
+            sw.add_scalar("train/in-batch/loss", loss, global_step)
             loss_train += loss
+            male_train += np.mean(np.abs(forecast - target))
+            log_abs_miss = np.abs(forecast - target)
+            total_log_abs_miss_train += log_abs_miss.sum()
+            total_log_target_train += target.sum()
+            # Linear metrics
+            forecast = np.expm1(forecast)
+            target = np.expm1(target)
+            abs_miss = np.abs(forecast - target)
+            total_abs_miss_train += abs_miss.sum()
+            total_target_train += target.sum()
             logger.debug(f"Train batch pre-step loss = {loss}")
-
         loss_train /= c + 1
+        male_train /= c + 1
+        mape_train = total_abs_miss_train / total_target_train
+        log_mape_train = total_log_abs_miss_train / total_log_target_train
         sw.add_scalar("train/epoch/loss", loss_train, epoch)
+        sw.add_scalar("train/epoch/male", male_train, epoch)
+        sw.add_scalar("train/epoch/mape", mape_train, epoch)
+        sw.add_scalar("train/epoch/log_mape", log_mape_train, epoch)
+
         logging.info(
-            f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train}. "
+            f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train} – "
+            f"MALE = {male_train} – MAPE = {mape_train}  – MAPLE = {log_mape_train} – "
             f"Global steps: {global_step}"
         )
-        wandb.log({"loss_dev": loss_dev, "loss_train": loss_train, "epoch": epoch})
+        wandb.log(
+            {
+                "loss_dev": loss_dev,
+                "male_dev": male_dev,
+                "mape_dev": mape_dev,
+                "log_mape_dev": log_mape_dev,
+                "loss_train": loss_train,
+                "male_train": male_train,
+                "mape_train": mape_train,
+                "log_mape_train": log_mape_train,
+                "epoch": epoch,
+            }
+        )
 
         if epoch % 10 == 0:  # Save to wandb
             path = get_model_path(alias=alias)
