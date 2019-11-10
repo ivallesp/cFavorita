@@ -8,6 +8,11 @@ variable "n_ec2_instances" {
   default = 1
 }
 
+variable "ec2_public_key_filepath" {
+  type    = string
+  default = "~/ssh_keys/burner.pub"
+}
+
 variable "aws_region" {
   type    = string
   default = "us-east-1"
@@ -25,12 +30,12 @@ variable "ec2_ami" {
 
 variable "ec2_ssh_key_filepath" {
   type    = string
-  default = "/Users/ivallesp/ssh_keys/burner.pem"
+  default = "~/ssh_keys/burner.pem"
 }
 
 variable "aws_personal_credentials_filepath" {
   type    = string
-  default = "/Users/ivallesp/.aws/credentials.ivallesp7"
+  default = "~/.aws/credentials.ivallesp7"
 }
 
 variable "ec2_key_name" {
@@ -40,12 +45,12 @@ variable "ec2_key_name" {
 
 variable "kaggle_credentials_filepath" {
   type    = string
-  default = "/Users/ivallesp/.kaggle"
+  default = "~/.kaggle"
 }
 
 variable "github_private_key_filepath" {
   type    = string
-  default = "/Users/ivallesp/ssh_keys/cfavorita_github_key"
+  default = "~/ssh_keys/cfavorita_github_key"
 }
 
 variable "amznet_prefix" {

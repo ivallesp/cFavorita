@@ -3,6 +3,11 @@ provider "aws" {
   region  = var.aws_region
 }
 
+resource "aws_key_pair" "main" {
+  key_name   = var.ec2_key_name
+  public_key = file(var.ec2_public_key_filepath)
+}
+
 resource "aws_security_group" "ssh-from-amznet" {
   name        = "ssh-from-amznet"
   description = "Access to SSH from amazon network"
@@ -27,7 +32,7 @@ resource "aws_instance" "example" {
   instance_type        = var.ec2_instance_type
   security_groups      = [aws_security_group.ssh-from-amznet.name]
   iam_instance_profile = aws_iam_instance_profile.test_profile.name
-  key_name             = var.ec2_key_name
+  key_name             = aws_key_pair.main.key_name
 
   connection {
     host        = self.public_dns
