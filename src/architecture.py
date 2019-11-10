@@ -1,11 +1,13 @@
-import torch
-import shutil
-import os
-from torch import nn
-import numpy as np
-from src.constants import embedding_sizes
-from src.common_paths import get_model_path
 import logging
+import os
+import shutil
+
+import numpy as np
+import torch
+from torch import nn
+
+from src.common_paths import get_model_path
+from src.constants import embedding_sizes
 
 logger = logging.getLogger(__name__)
 

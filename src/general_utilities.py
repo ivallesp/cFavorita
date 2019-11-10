@@ -1,8 +1,10 @@
 import json
-import toml
 import logging
 
+import toml
+
 logger = logging.getLogger(__name__)
+
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
@@ -45,6 +47,7 @@ def get_custom_project_config():
     """
     return toml.load("pyproject.toml")["custom"]
 
+
 def log_config(config):
     alias = config["alias"]
     random_seed = config["random_seed"]
@@ -59,4 +62,4 @@ def log_config(config):
     if cuda:
         logger.info(f"Device used for computation: GPU")
     else:
-        logger.info(f"Device used for computation: GPU")
+        logger.info(f"Device used for computation: CPU")
