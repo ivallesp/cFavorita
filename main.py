@@ -61,9 +61,12 @@ if __name__ == "__main__":
     }
     logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
 
-    # TODO: Check and delete item_nbr and store_number from time dataset
-    # keys = ["date", "store_nbr", "item_nbr"]
-    # df = df.drop(keys, axis=1)
+    # Check and clean redundant data
+    keys = ["store_nbr", "item_nbr"]
+    assert (df_master[keys][:, 0] == df_master_static[keys]).all()
+    keys = ["date", "store_nbr", "item_nbr", "id"]
+    new_vars = np.setdiff1d(df_master.dtype.names, keys)
+    df_master = df_master[new_vars]
 
     # Feature groups definitions
     num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)

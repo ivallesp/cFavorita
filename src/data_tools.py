@@ -462,22 +462,22 @@ class MasterDataGetter(DataGetter):
             "NA Data filled with zeros successfully! Reducing the size of the dataset..."
         )
         df = reduce_mem_usage(df)
-        logger.info("Calculating year var...")
-        df["year"] = (
-            df["date"].astype("str").str[0:4].astype(int) - 2015
-        ) / 2  # Center and scale
-        logger.info("Calculating month var...")
-        df["month"] = (
-            df["date"].astype("str").str[4:6].astype(int) - 6.5
-        ) / 5.5  # Center and scale
-        logger.info("Calculating day var...")
-        df["day"] = (
-            df["date"].astype("str").str[6:].astype(int) - 16
-        ) / 15  # Center and scale
-        logger.info("Calculating day of week var...")
-        df["dayofweek"] = (
-            pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek - 3
-        ) / 3  # Center and scale
+    logger.info("Calculating year var...")
+    df["year"] = (
+        df["date"].astype("str").str[0:4].astype(int) - 2015
+    ) / 2  # Center and scale
+    logger.info("Calculating month var...")
+    df["month"] = (
+        df["date"].astype("str").str[4:6].astype(int) - 6.5
+    ) / 5.5  # Center and scale
+    logger.info("Calculating day var...")
+    df["day"] = (
+        df["date"].astype("str").str[6:].astype(int) - 16
+    ) / 15  # Center and scale
+    logger.info("Calculating day of week var...")
+    df["dayofweek"] = (
+        pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek - 3
+    ) / 3  # Center and scale
         for var in categorical_feats:
             if var in df.columns:
                 logger.info("Calculating {} categorical var...".format(var))
@@ -485,7 +485,7 @@ class MasterDataGetter(DataGetter):
         df["dcoilwtico"] = (df["dcoilwtico"] - 50) / 50
 
         df = reduce_mem_usage(df)
-        return df
+    return df
 
 
 class MasterTimelessGetter(DataGetter):
@@ -579,11 +579,6 @@ def get_batches_generator(
     logger.info("Shuffling dataframe...")
     df_time, df_static = shuffle_multiple(df_time, df_static)
     logger.info("Shuffle successful!")
-
-    # Assure perfect alignment
-    case_static = df_static[["store_nbr", "item_nbr"]]
-    case_time = df_time[:, 0][["store_nbr", "item_nbr"]]
-    assert (case_static == case_time).all()
 
     time_steps = df_time.shape[1]
 
