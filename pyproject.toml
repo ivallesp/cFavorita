@@ -31,7 +31,7 @@ requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
 [custom]
-alias = "test_v3_lnlstm"
+alias = "test"
 cuda = true
 sample = false
 random_seed = 655321
