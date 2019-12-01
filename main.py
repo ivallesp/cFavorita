@@ -53,7 +53,7 @@ if __name__ == "__main__":
     # Load static data
     logger.info("Generating static dataset...")
     df_master_static = FactoryLoader().load("master_timeless", sample=sample)
-    df_master_static = df_master_static.to_records()
+    df_master_static = df_master_static.to_records(index=False)
     cat_cardinalities_timeless = {
         col: len(np.unique(df_master_static[col]))
         for col in df_master_static.dtype.names
@@ -62,6 +62,8 @@ if __name__ == "__main__":
     logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
 
     # TODO: Check and delete item_nbr and store_number from time dataset
+    # keys = ["date", "store_nbr", "item_nbr"]
+    # df = df.drop(keys, axis=1)
 
     # Feature groups definitions
     num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)

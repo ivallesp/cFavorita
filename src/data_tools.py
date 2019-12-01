@@ -177,7 +177,7 @@ def get_data_cube_from_df(df):
 def get_records_cube_from_df(df):
     shape = (df.store_nbr.nunique() * df.item_nbr.nunique(), df.date.nunique())
     gc.collect()
-    df = df.to_records()
+    df = df.to_records(index=False)
     gc.collect()
     df = df.reshape(shape)
     gc.collect()
