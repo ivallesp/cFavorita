@@ -462,6 +462,22 @@ class MasterDataGetter(DataGetter):
             "NA Data filled with zeros successfully! Reducing the size of the dataset..."
         )
         df = reduce_mem_usage(df)
+        logger.info(f"Calculating date variables... shape={df.shape}")
+        df_dates = _get_dates_variables(df)
+        df = df.merge(df_dates, on="date", how="left")
+        logger.info(f"Date variables calculated successfully! shape={df.shape}")
+
+        for var in categorical_feats:
+            if var in df.columns:
+                logger.info("Calculating {} categorical var...".format(var))
+                df[var] = pd.Categorical(df[var]).codes
+        df["dcoilwtico"] = (df["dcoilwtico"] - 50) / 50
+        df = reduce_mem_usage(df)
+        return df
+
+
+def _get_dates_variables(df):
+    df = df[["date"]].drop_duplicates()
     logger.info("Calculating year var...")
     df["year"] = (
         df["date"].astype("str").str[0:4].astype(int) - 2015
@@ -478,13 +494,6 @@ class MasterDataGetter(DataGetter):
     df["dayofweek"] = (
         pd.to_datetime(df["date"], format="%Y%m%d").dt.dayofweek - 3
     ) / 3  # Center and scale
-        for var in categorical_feats:
-            if var in df.columns:
-                logger.info("Calculating {} categorical var...".format(var))
-                df[var] = pd.Categorical(df[var]).codes
-        df["dcoilwtico"] = (df["dcoilwtico"] - 50) / 50
-
-        df = reduce_mem_usage(df)
     return df
 
 
