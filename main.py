@@ -43,22 +43,12 @@ if __name__ == "__main__":
     logger.info(f"Time dataset generated successfully! Shape: {df_master.shape}")
     logger.info("Converting time-dependent dataset to data cube...")
     df_master = get_records_cube_from_df(df=df_master)
-    cat_cardinalities_time = {
-        col: len(np.unique(df_master[col]))
-        for col in df_master.dtype.names
-        if col in categorical_feats
-    }
     logger.info(f"Data cube successfully generated! Shape: {df_master.shape}")
 
     # Load static data
     logger.info("Generating static dataset...")
     df_master_static = FactoryLoader().load("master_timeless", sample=sample)
     df_master_static = df_master_static.to_records(index=False)
-    cat_cardinalities_timeless = {
-        col: len(np.unique(df_master_static[col]))
-        for col in df_master_static.dtype.names
-        if col in categorical_feats
-    }
     logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
 
     # Check and clean redundant data
@@ -68,6 +58,17 @@ if __name__ == "__main__":
     new_vars = np.setdiff1d(df_master.dtype.names, keys)
     df_master = df_master[new_vars]
 
+    # Calculate cardinalities
+    cat_cardinalities_timeless = {
+        col: len(np.unique(df_master_static[col]))
+        for col in df_master_static.dtype.names
+        if col in categorical_feats
+    }
+    cat_cardinalities_time = {
+        col: len(np.unique(df_master[col]))
+        for col in df_master.dtype.names
+        if col in categorical_feats
+    }
     # Feature groups definitions
     num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)
     num_static_feats = np.intersect1d(numeric_feats, df_master_static.dtype.names)
