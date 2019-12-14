@@ -11,8 +11,10 @@ pandas = "=0.24.2"
 tensorboard = "=1.13.1"
 kaggle = "=1.5.3"
 pyarrow = "^0.15.0"
-torch = "~1.3.0"
-torchvision = "0.4.1"
+torch = { file = "/root/pytorch/dist/torch-1.4.0a0+e42af97-cp36-cp36m-linux_x86_64.whl" }
+torchvision = { file = "/root/vision/dist/torchvision-0.5.0a0+44a5bae-cp36-cp36m-linux_x86_64.whl" }
+#torchvision = { git = "https://github.com/pytorch/vision.git"}
+#torchvision = { git = "https://github.com/pytorch/vision.git", rev="44a5bae933655ed7ff798669a43452b833f9ce01" }
 matplotlib = "^3.1"
 tensorboardX = "^1.9"
 tensorflow = "1.13.1"
