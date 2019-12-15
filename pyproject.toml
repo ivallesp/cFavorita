@@ -8,17 +8,11 @@ authors = ["ivallesp <ivanvallesperez@gmail.com>"]
 python = "=3.6.9"
 numpy = "=1.16.2"
 pandas = "=0.24.2"
-tensorboard = "=1.13.1"
 kaggle = "=1.5.3"
-pyarrow = "^0.15.0"
-torch = { file = "/root/pytorch/dist/torch-1.4.0a0+e42af97-cp36-cp36m-linux_x86_64.whl" }
-torchvision = { file = "/root/vision/dist/torchvision-0.5.0a0+44a5bae-cp36-cp36m-linux_x86_64.whl" }
-#torchvision = { git = "https://github.com/pytorch/vision.git"}
-#torchvision = { git = "https://github.com/pytorch/vision.git", rev="44a5bae933655ed7ff798669a43452b833f9ce01" }
+torch = { file = "/root/torch-1.4.0a0+e42af97-cp36-cp36m-linux_x86_64.whl" }
+torchvision = { file = "/root/torchvision-0.5.0a0+44a5bae-cp36-cp36m-linux_x86_64.whl" }
 matplotlib = "^3.1"
 tensorboardX = "^1.9"
-tensorflow = "1.13.1"
-h5py = "^2.10"
 wandb = "^0.8.14"
 
 [tool.poetry.dev-dependencies]
@@ -26,11 +20,6 @@ black = {version = "^18.3-alpha.0", allows-prereleases = true}
 flake8 = "^3.7"
 ipython = "^7.8"
 ipykernel = "^5.1"
-tables = "^3.5"
-
-[build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
 
 [custom]
 alias = "test"
