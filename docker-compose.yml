@@ -2,3 +2,20 @@ version: '3.4'
 services:
   cfavorita_env:
     build: .
+    container_name: cfavorita
+    privileged: true
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    volumes:
+      - ./data:/root/cFavorita/data
+      - ./logs:/root/cFavorita/logs
+      - ./models:/root/cFavorita/models
+      - ./src:/root/cFavorita/src
+      - ./main.py:/root/cFavorita/main.py
+      - ./.flake8:/root/cFavorita/.flake8
+      - ./.python-version:/root/cFavorita/.python-version
+      - ./logging_config.ini:/root/cFavorita/logging_config.ini
+      - ./poetry.lock:/root/cFavorita/poetry.lock
+      - ./pyproject.toml:/root/cFavorita/pyproject.toml
+      - ./settings.json:/root/cFavorita/settings.json
