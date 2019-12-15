@@ -9,22 +9,18 @@ services:
       - tensorboard_logs:/logs
     ports:
       - "6006:6006"
+
   cfavorita_env:
-    build: .
+    build:
+      context: .
+      dockerfile: ./docker/cfavorita_env/dockerfile
+      target: environment
+    env_file:
+      - ./docker/credentials.env
     privileged: true
     devices:
       - /dev/kfd
       - /dev/dri
     volumes:
-      - ./data:/root/cFavorita/data
-      - ./logs:/root/cFavorita/logs
-      - ./models:/root/cFavorita/models
-      - ./src:/root/cFavorita/src
-      - ./main.py:/root/cFavorita/main.py
-      - ./.flake8:/root/cFavorita/.flake8
-      - ./.python-version:/root/cFavorita/.python-version
-      - ./logging_config.ini:/root/cFavorita/logging_config.ini
-      - ./poetry.lock:/root/cFavorita/poetry.lock
-      - ./pyproject.toml:/root/cFavorita/pyproject.toml
-      - ./settings.json:/root/cFavorita/settings.json
-      - .tensorboard_logs:/root/cFavorita/.logs_tensorboard
+      - .:/root/cFavorita
+      - /root/cFavorita/.vscode
