@@ -43,3 +43,6 @@ settings.json
 
 # Weights and biases tool files
 wandb/*
+
+# Credentials
+docker/credentials.env
