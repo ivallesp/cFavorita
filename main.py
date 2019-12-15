@@ -70,10 +70,10 @@ if __name__ == "__main__":
         if col in categorical_feats
     }
     # Feature groups definitions
-    num_time_feats = np.intersect1d(numeric_feats, df_master.dtype.names)
-    num_static_feats = np.intersect1d(numeric_feats, df_master_static.dtype.names)
-    cat_time_feats = np.intersect1d(categorical_feats, df_master.dtype.names)
-    cat_static_feats = np.intersect1d(categorical_feats, df_master_static.dtype.names)
+    num_time_feats = np.intersect1d(df_master.dtype.names, numeric_feats)
+    num_static_feats = np.intersect1d(df_master_static.dtype.names, numeric_feats)
+    cat_time_feats = np.intersect1d(df_master.dtype.names, categorical_feats)
+    cat_static_feats = np.intersect1d(df_master_static.dtype.names, categorical_feats)
     logging.info(f"Numeric time-dependent feats: {num_time_feats}")
     logging.info(f"Numeric static feats: {num_static_feats}")
     logging.info(f"Categorical time-dependent feats: {cat_time_feats}")
