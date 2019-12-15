@@ -28,3 +28,4 @@ RUN pyenv install 3.6.9
 RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
 RUN echo 'source ~/.poetry/env' >> ~/.bashrc
 RUN ~/.poetry/bin/poetry config virtualenvs.in-project true
+CMD ["tail", "-f", "/dev/null"]
