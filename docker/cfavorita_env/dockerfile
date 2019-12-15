@@ -1,6 +1,6 @@
+# PYTORCH COMPILATION ------------------------------------------------------------------
 # https://rocm-documentation.readthedocs.io/en/latest/Deep_learning/Deep-learning.html
-
-FROM rocm/pytorch:rocm2.9_ubuntu16.04_py3.6_pytorch
+FROM rocm/pytorch:rocm2.9_ubuntu16.04_py3.6_pytorch as compiler
 RUN apt update && apt install -y libidn11 libboost-dev rtl-sdr
 
 # Grasp and compile Pytorch
@@ -16,16 +16,32 @@ RUN cd ~/pytorch && .jenkins/pytorch/build.sh
 RUN cd ~ && git clone https://github.com/pytorch/vision && cd vision && git checkout 44a5bae933655ed7ff798669a43452b833f9ce01
 RUN cd ~/vision && python setup.py bdist_wheel
 
+
+# ENVIRONMENT GENERATION ---------------------------------------------------------------
+FROM rocm/pytorch:rocm2.9_ubuntu16.04_py3.6_pytorch as environment
+COPY --from=compiler /root/pytorch/dist/torch-1.4.0a0+e42af97-cp36-cp36m-linux_x86_64.whl /root/torch-1.4.0a0+e42af97-cp36-cp36m-linux_x86_64.whl
+COPY --from=compiler /root/vision/dist/torchvision-0.5.0a0+44a5bae-cp36-cp36m-linux_x86_64.whl /root/torchvision-0.5.0a0+44a5bae-cp36-cp36m-linux_x86_64.whl
+
 # Install pyenv
+RUN apt update && apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git
 RUN curl https://pyenv.run | bash
 ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:$PATH
 RUN echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bashrc
 RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 RUN eval "$(pyenv init -)"
-RUN pyenv install 3.6.9
 
 # Install poetry
 RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
 RUN echo 'source ~/.poetry/env' >> ~/.bashrc
-RUN ~/.poetry/bin/poetry config virtualenvs.in-project true
+# RUN ~/.poetry/bin/poetry config virtualenvs.in-project true
+
+# Build environment
+RUN mkdir /root/env_builder
+COPY ./pyproject.toml /root/cFavorita/pyproject.toml
+COPY ./poetry.lock /root/cFavorita/poetry.lock
+COPY ./.python-version /root/cFavorita/.python-version
+RUN pyenv install $(cat /root/cFavorita/.python-version)
+RUN cd /root/cFavorita && ~/.poetry/bin/poetry install
+
+RUN apt update && apt install p7zip-full
 CMD ["tail", "-f", "/dev/null"]
