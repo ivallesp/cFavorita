@@ -428,12 +428,15 @@ class MasterDataGetter(DataGetter):
 
         # Performing and merging Cartesian
         df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
+        logger.info("Cartesian join performed!")
         df_cartesian = df_cartesian.sort_values(
             by=["store_nbr", "item_nbr", "date"], ascending=True
         )
+        logger.info("Cartesian table joined!")
         df = df_cartesian.merge(
             df_main, on=["date", "store_nbr", "item_nbr"], how="left"
         )
+        logger.info(f"Train data merged with cartesian successfully! shape={df.shape}")
         del df_main, df_cartesian
         df = reduce_mem_usage(df)
 
