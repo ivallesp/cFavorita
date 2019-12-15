@@ -1,0 +1,3 @@
+FROM tensorflow/tensorflow:latest
+RUN mkdir /logs
+CMD ["tensorboard", "--logdir", "/logs"]
