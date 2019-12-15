@@ -22,10 +22,10 @@ ipython = "^7.8"
 ipykernel = "^5.1"
 
 [custom]
-alias = "test"
+alias = "classic_seq2seq"
 cuda = true
 sample = false
 random_seed = 655321
 batch_size = 128
 forecast_horizon = 15
-learning_rate = 0.001
+learning_rate = 0.0001
