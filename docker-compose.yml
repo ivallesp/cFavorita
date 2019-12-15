@@ -10,7 +10,7 @@ services:
     ports:
       - "6006:6006"
 
-  cfavorita_env:
+  environment:
     build:
       context: .
       dockerfile: ./docker/cfavorita_env/dockerfile
