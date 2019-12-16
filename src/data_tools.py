@@ -431,7 +431,7 @@ class MasterDataGetter(DataGetter):
         logger.info("Cartesian join performed!")
         df_cartesian = df_cartesian.set_index(["date", "store_nbr", "item_nbr"])
         df_main = df_main.set_index(["date", "store_nbr", "item_nbr"])
-        logger.info("Indices set successfully in cartesian and tran tables!")
+        logger.info("Indices set successfully in cartesian and train tables!")
         df = df_cartesian.join(df_main)
         df = df.reset_index()
         logger.info(f"Train data merged with cartesian successfully! shape={df.shape}")
@@ -439,20 +439,27 @@ class MasterDataGetter(DataGetter):
         df = reduce_mem_usage(df)
 
         # Merge holidays
-        df = df.merge(df_holidays, on=self.fl_holidays.getter.keys, how="left")
+        df = df.set_index(self.fl_holidays.getter.keys)
+        df_holidays = df_holidays.set_index(self.fl_holidays.getter.keys)
+        df = df.join(df_holidays)
         del df_holidays
         gc.collect()
         logger.info(f"Holidays merged successfully! shape={df.shape}")
 
         # Merge transactions
-        df = df.merge(df_transactions, on=self.fl_transactions.getter.keys, how="left")
+        df = df.set_index(self.fl_transactions.getter.keys)
+        df_transactions = df_transactions.set_index(self.fl_transactions.getter.keys)
+        df = df.join(df_transactions)
         del df_transactions
         gc.collect()
         logger.info(f"Transactions merged successfully! shape={df.shape}")
 
         # Merge oil
-        df = df.merge(df_oil, on=self.fl_oil.getter.keys, how="left")
+        df = df.set_index(self.fl_oil.getter.keys)
+        df_oil = df_oil.set_index(self.fl_oil.getter.keys)
+        df = df.join(df_oil)
         del df_oil
+        df = df.reset_index()
         gc.collect()
         logger.info(f"Oil merged successfully! shape={df.shape}")
         return df
@@ -465,7 +472,9 @@ class MasterDataGetter(DataGetter):
         df = reduce_mem_usage(df)
         logger.info(f"Calculating date variables... shape={df.shape}")
         df_dates = _get_dates_variables(df)
-        df = df.merge(df_dates, on="date", how="left")
+        df_dates = df_dates.set_index("date")
+        df = df.set_index("date")
+        df = df.join(df_dates).reset_index()
         logger.info(f"Date variables calculated successfully! shape={df.shape}")
 
         for var in categorical_feats:
