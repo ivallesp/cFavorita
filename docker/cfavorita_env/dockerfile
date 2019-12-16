@@ -43,5 +43,5 @@ COPY ./.python-version /root/cFavorita/.python-version
 RUN pyenv install $(cat /root/cFavorita/.python-version)
 RUN cd /root/cFavorita && ~/.poetry/bin/poetry install
 
-RUN apt update && apt install p7zip-full
+RUN apt update && apt install p7zip-full tmux htop
 CMD ["tail", "-f", "/dev/null"]
