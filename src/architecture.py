@@ -8,7 +8,6 @@ from torch import nn
 
 from src.common_paths import get_model_path
 from src.constants import embedding_sizes
-from src.torch_modules.recurrent_cells import LSTMLayer, LayerNormLSTMCell
 
 logger = logging.getLogger(__name__)
 
@@ -137,9 +136,7 @@ class Seq2Seq(nn.Module):
     def initialize_weights(self):
         # https://discuss.pytorch.org/t/initializing-parameters-of-a-multi-layer-lstm/5791
         for name, param in self.named_parameters():
-            if "layernorm" in name:
-                break
-            elif "bias" in name:
+            if "bias" in name:
                 nn.init.constant_(param, 0.0)
             elif "weight" in name:
                 nn.init.kaiming_normal_(param)
@@ -170,8 +167,7 @@ class Encoder(nn.Module):
             self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         input_sz = int(embs_sz + n_num_time_feats)
-        self.num_layers = 1
-        self.rnn_encoder = LSTMLayer(LayerNormLSTMCell, input_sz, 128)
+        self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
 
     def forward(self, x_num_time, x_cat_time, cat_time_names):
         emb_feats = []
@@ -180,16 +176,7 @@ class Encoder(nn.Module):
             # TODO: make all the tensor long to enhance efficiency
 
         time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
-        n_layers = 1
-        zeros = torch.zeros(
-            n_layers,
-            time_features.shape[1],
-            self.rnn_encoder.cell.hidden_size,
-            dtype=time_features.dtype,
-            device=time_features.device,
-        )
-        states = (zeros, zeros)
-        _, state = self.rnn_encoder(time_features, states)
+        _, state = self.rnn_encoder(time_features)
         return state
 
 
@@ -199,7 +186,7 @@ class Decoder(nn.Module):
         self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
         self.n_recurrent_cells = 128
-        self.rnn_decoder = LSTMLayer(LayerNormLSTMCell, 1, self.n_recurrent_cells)
+        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
         self.embs = {}
 
         for cat in categorical_cardinalities:
