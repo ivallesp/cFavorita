@@ -101,6 +101,10 @@ if __name__ == "__main__":
 
     logging.info(f"Starting the training loop!")
     for epoch in range(epoch, 10000):  # Epochs loop
+        logger.info("Shuffling dataframe...")
+        df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
+        logger.info("Shuffle successful!")
+
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
         # ! Validation phase
@@ -109,7 +113,6 @@ if __name__ == "__main__":
             df_static=df_master_static,
             batch_size=batch_size,
             forecast_horizon=forecast_horizon,
-            shuffle=True,
             shuffle_present=False,
             cuda=cuda,
         )
@@ -171,7 +174,6 @@ if __name__ == "__main__":
             df_static=df_master_static,
             batch_size=batch_size,
             forecast_horizon=forecast_horizon,
-            shuffle=True,
             shuffle_present=True,
             cuda=cuda,
         )

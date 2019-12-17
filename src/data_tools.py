@@ -576,7 +576,6 @@ def get_batches_generator(
     batch_size=128,
     min_history=300,
     forecast_horizon=7,
-    shuffle=True,
     shuffle_present=True,
     cuda=False,
 ):
@@ -587,10 +586,6 @@ def get_batches_generator(
         batch_time_normalizable_feats,
         embedding_sizes,
     )
-
-    logger.info("Shuffling dataframe...")
-    df_time, df_static = shuffle_multiple(df_time, df_static)
-    logger.info("Shuffle successful!")
 
     time_steps = df_time.shape[1]
 
