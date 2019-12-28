@@ -12,7 +12,7 @@ from src.common_paths import (
 )
 from src.data_tools import get_batches_generator, shuffle_multiple, get_data_cubes
 from src.general_utilities import get_custom_project_config, log_config
-from src.model import build_architecture
+from src.model import build_architecture, run_validation_epoch, run_training_epoch
 
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
@@ -58,9 +58,9 @@ if __name__ == "__main__":
         df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
         logger.info("Shuffle successful!")
 
+        # ! Validation phase
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
-        # ! Validation phase
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
@@ -69,57 +69,19 @@ if __name__ == "__main__":
             shuffle_present=False,
             cuda=cuda,
         )
-        loss_dev = 0
-        male_dev = 0
-        total_abs_miss_dev = 0
-        total_log_abs_miss_dev = 0
-        total_target_dev = 0
-        total_log_target_dev = 0
-        for (c, (ntb, ctb, csb, target)) in enumerate(batcher_dev):
-            logger.debug(f"Dev batch {c} generated successfully. Calculating loss...")
-            loss, forecast = s2s.loss(
-                x_num_time=ntb,
-                x_cat_time=ctb,
-                x_cat_static=csb,
-                target=target,
-            )
-            loss = loss.data.cpu().numpy()
-            forecast = forecast.data.cpu().numpy()
-            target = target.data.cpu().numpy()
-            # Log metrics
-            loss_dev += loss
-            male_dev += np.mean(np.abs(forecast - target))
-            log_abs_miss = np.abs(forecast - target)
-            total_log_abs_miss_dev += log_abs_miss.sum()
-            total_log_target_dev += target.sum()
-            # Linear metrics
-            forecast = np.expm1(forecast)
-            target = np.expm1(target)
-            abs_miss = np.abs(forecast - target)
-            total_abs_miss_dev += abs_miss.sum()
-            total_target_dev += target.sum()
-        loss_dev /= c + 1
-        male_dev /= c + 1
-        log_mape_dev = total_log_abs_miss_dev / total_log_target_dev
-        mape_dev = total_abs_miss_dev / total_target_dev
-        sw.add_scalar("validation/epoch/loss", loss_dev, epoch)
-        sw.add_scalar("validation/epoch/male", male_dev, epoch)
-        sw.add_scalar("validation/epoch/mape", mape_dev, epoch)
-        sw.add_scalar("validation/epoch/log_mape", log_mape_dev, epoch)
-        logging.info(
-            f"EPOCH: {epoch:06d} | Validation finished. Loss = {loss_dev} – "
-            f"MALE = {male_dev} – MAPE = {mape_dev} - MAPLE = {log_mape_dev}"
-        )
+        metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev)
 
         # ! Model serialization
-        if loss_dev < best_loss:
+        if metrics_dev["loss"] < best_loss:
             is_best = True
+            best_loss = metrics_dev["loss"]
         s2s.save_checkpoint(
             epoch=epoch, best_loss=best_loss, is_best=is_best, global_step=global_step
         )
 
         # ! Training phase
         logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
+
         batcher_train = get_batches_generator(
             df_time=df_master[:, :-forecast_horizon],
             df_static=df_master_static,
@@ -128,65 +90,30 @@ if __name__ == "__main__":
             shuffle_present=True,
             cuda=cuda,
         )
-        loss_train = 0
-        male_train = 0
-        total_abs_miss_train = 0
-        total_log_abs_miss_train = 0
-        total_target_train = 0
-        total_log_target_train = 0
-        for (c, (ntb, ctb, csb, target)) in enumerate(batcher_train):
-            logger.debug(f"Train batch {c} generated successfully. Running step...")
-            loss, forecast = s2s.step(
-                x_num_time=ntb,
-                x_cat_time=ctb,
-                x_cat_static=csb,
-                target=target,
-            )
-            global_step += 1
-            loss = loss.data.cpu().numpy()
-            forecast = forecast.data.cpu().numpy()
-            target = target.data.cpu().numpy()
-            # Log metrics
-            sw.add_scalar("train/in-batch/loss", loss, global_step)
-            loss_train += loss
-            male_train += np.mean(np.abs(forecast - target))
-            log_abs_miss = np.abs(forecast - target)
-            total_log_abs_miss_train += log_abs_miss.sum()
-            total_log_target_train += target.sum()
-            # Linear metrics
-            forecast = np.expm1(forecast)
-            target = np.expm1(target)
-            abs_miss = np.abs(forecast - target)
-            total_abs_miss_train += abs_miss.sum()
-            total_target_train += target.sum()
-            logger.debug(f"Train batch pre-step loss = {loss}")
-        loss_train /= c + 1
-        male_train /= c + 1
-        mape_train = total_abs_miss_train / total_target_train
-        log_mape_train = total_log_abs_miss_train / total_log_target_train
-        sw.add_scalar("train/epoch/loss", loss_train, epoch)
-        sw.add_scalar("train/epoch/male", male_train, epoch)
-        sw.add_scalar("train/epoch/mape", mape_train, epoch)
-        sw.add_scalar("train/epoch/log_mape", log_mape_train, epoch)
+        metrics_train = run_training_epoch(model=s2s, batcher=batcher_train)
+
+        # ! Report
+        for m in metrics_dev:
+            sw.add_scalar("validation/epoch/{m}", metrics_dev[m], epoch)
+
+        for m in metrics_train:
+            sw.add_scalar("train/epoch/{m}", metrics_train[m], epoch)
+
+        metrics_dev = {k + "_dev": v for k, v in metrics_dev.items()}
+        metrics_train = {k + "_train": v for k, v in metrics_train.items()}
+        metrics = {**metrics_dev, **metrics_train}
 
         logging.info(
-            f"EPOCH: {epoch:06d} | Epoch finished. Train Loss = {loss_train} – "
-            f"MALE = {male_train} – MAPE = {mape_train}  – MAPLE = {log_mape_train} – "
-            f"Global steps: {global_step}"
+            f"EPOCH: {epoch:06d} finished!"
+            f"\n\tValidation – Loss = {metrics['loss_dev']} – "
+            f"MALE = {metrics['male_dev']} – MAPE = {metrics['mape_dev']} - "
+            f"MAPLE = {metrics['log_mape_dev']}"
+            f"\n\tTraining – Loss = {metrics['loss_train']} – "
+            f"MALE = {metrics['male_train']} – MAPE = {metrics['mape_train']}  – "
+            f"MAPLE = {metrics['log_mape_train']}"
         )
-        wandb.log(
-            {
-                "loss_dev": loss_dev,
-                "male_dev": male_dev,
-                "mape_dev": mape_dev,
-                "log_mape_dev": log_mape_dev,
-                "loss_train": loss_train,
-                "male_train": male_train,
-                "mape_train": mape_train,
-                "log_mape_train": log_mape_train,
-                "epoch": epoch,
-            }
-        )
+
+        wandb.log({**metrics, **{"epoch": epoch}})
 
         if epoch % 10 == 0:  # Save to wandb
             path = get_model_path(alias=alias)

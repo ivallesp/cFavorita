@@ -43,3 +43,57 @@ def build_architecture(df_time, df_static, forecast_horizon, lr, cuda, alias):
     )
     logger.info("Architecture built successfully!")
     return s2s
+
+
+def run_validation_epoch(model, batcher):
+    task = "validate"
+    metrics = _run_epoch(model=model, batcher=batcher, task=task)
+    return metrics
+
+
+def run_training_epoch(model, batcher):
+    task = "train"
+    metrics = _run_epoch(model=model, batcher=batcher, task=task)
+    return metrics
+
+
+def _run_epoch(model, batcher, task="validate"):
+    if task == "validate":
+        f = model.loss
+    elif task == "train":
+        f = model.step
+    else:
+        ValueError(f"Task specified not defined: {task}")
+    loss_dev = 0
+    male_dev = 0
+    total_abs_miss_dev = 0
+    total_log_abs_miss_dev = 0
+    total_target_dev = 0
+    total_log_target_dev = 0
+    for (c, (ntb, ctb, csb, target)) in enumerate(batcher):
+        loss, forecast = f(
+            x_num_time=ntb, x_cat_time=ctb, x_cat_static=csb, target=target
+        )
+
+        loss = loss.data.cpu().numpy()
+        forecast = forecast.data.cpu().numpy()
+        target = target.data.cpu().numpy()
+        # Log metrics
+        loss_dev += loss
+        male_dev += np.mean(np.abs(forecast - target))
+        log_abs_miss = np.abs(forecast - target)
+        total_log_abs_miss_dev += log_abs_miss.sum()
+        total_log_target_dev += target.sum()
+        # Linear metrics
+        forecast = np.expm1(forecast)
+        target = np.expm1(target)
+        abs_miss = np.abs(forecast - target)
+        total_abs_miss_dev += abs_miss.sum()
+        total_target_dev += target.sum()
+    metrics = {
+        "loss": loss_dev / (c + 1),
+        "male": male_dev / (c + 1),
+        "log_mape": total_log_abs_miss_dev / total_log_target_dev,
+        "mape": total_abs_miss_dev / total_target_dev,
+    }
+    return metrics
