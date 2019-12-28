@@ -578,13 +578,7 @@ def get_batches_generator(
     shuffle_present=True,
     cuda=False,
 ):
-    from src.constants import (
-        numeric_feats,
-        categorical_feats,
-        target_name,
-        batch_time_normalizable_feats,
-        embedding_sizes,
-    )
+    from src.constants import numeric_feats, categorical_feats, target_name
 
     time_steps = df_time.shape[1]
 

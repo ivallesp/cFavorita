@@ -25,6 +25,8 @@ class Seq2Seq(nn.Module):
     ):
         super().__init__()
         self.name = name
+        self.cat_time_feats = np.array(list(cardinalities_time.keys()))
+        self.cat_static_feats = np.array(list(cardinalities_static.keys()))
         self.encoder = Encoder(
             n_num_time_feats=n_num_time_feats,
             categorical_cardinalities=cardinalities_time,
@@ -40,53 +42,31 @@ class Seq2Seq(nn.Module):
         if cuda:
             self.cuda()
 
-    def forward(
-        self, x_num_time, x_cat_time, x_cat_static, cat_time_names, cat_static_names
-    ):
+    def forward(self, x_num_time, x_cat_time, x_cat_static):
         contextual_thought = self.encoder.forward(
-            x_num_time=x_num_time, x_cat_time=x_cat_time, cat_time_names=cat_time_names
+            x_num_time=x_num_time,
+            x_cat_time=x_cat_time,
+            cat_time_names=self.cat_time_feats,
         )
         output = self.decoder.forward(
             x_cat_static=x_cat_static,
-            cat_static_names=cat_static_names,
+            cat_static_names=self.cat_static_feats,
             state=contextual_thought,
         )
         return output
 
-    def loss(
-        self,
-        x_num_time,
-        x_cat_time,
-        x_cat_static,
-        cat_time_names,
-        cat_static_names,
-        target,
-    ):
+    def loss(self, x_num_time, x_cat_time, x_cat_static, target):
         y_hat = self.forward(
-            x_num_time=x_num_time,
-            x_cat_time=x_cat_time,
-            x_cat_static=x_cat_static,
-            cat_time_names=cat_time_names,
-            cat_static_names=cat_static_names,
+            x_num_time=x_num_time, x_cat_time=x_cat_time, x_cat_static=x_cat_static
         )
         loss = torch_rmse(target, y_hat)
         return loss, y_hat
 
-    def step(
-        self,
-        x_num_time,
-        x_cat_time,
-        x_cat_static,
-        cat_time_names,
-        cat_static_names,
-        target,
-    ):
+    def step(self, x_num_time, x_cat_time, x_cat_static, target):
         loss, y_hat = self.loss(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
-            cat_time_names=cat_time_names,
-            cat_static_names=cat_static_names,
             target=target,
         )
         self.optimizer.zero_grad()

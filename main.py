@@ -5,19 +5,14 @@ import numpy as np
 import wandb
 from tensorboardX import SummaryWriter
 
-from src.architecture import Seq2Seq
 from src.common_paths import (
     get_log_config_filepath,
     get_model_path,
     get_tensorboard_path,
 )
-from src.constants import categorical_feats, numeric_feats
-from src.data_tools import (
-    get_batches_generator,
-    shuffle_multiple,
-    get_data_cubes
-)
+from src.data_tools import get_batches_generator, shuffle_multiple, get_data_cubes
 from src.general_utilities import get_custom_project_config, log_config
+from src.model import build_architecture
 
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
@@ -39,40 +34,17 @@ if __name__ == "__main__":
     # Load data
     df_master, df_master_static = get_data_cubes(sample)
 
-    # Calculate cardinalities
-    cat_cardinalities_timeless = {
-        col: len(np.unique(df_master_static[col]))
-        for col in df_master_static.dtype.names
-        if col in categorical_feats
-    }
-    cat_cardinalities_time = {
-        col: len(np.unique(df_master[col]))
-        for col in df_master.dtype.names
-        if col in categorical_feats
-    }
-    # Feature groups definitions
-    num_time_feats = np.intersect1d(df_master.dtype.names, numeric_feats)
-    num_static_feats = np.intersect1d(df_master_static.dtype.names, numeric_feats)
-    cat_time_feats = np.intersect1d(df_master.dtype.names, categorical_feats)
-    cat_static_feats = np.intersect1d(df_master_static.dtype.names, categorical_feats)
-    logging.info(f"Numeric time-dependent feats: {num_time_feats}")
-    logging.info(f"Numeric static feats: {num_static_feats}")
-    logging.info(f"Categorical time-dependent feats: {cat_time_feats}")
-    logging.info(f"Categorical static feats: {cat_static_feats}")
-
-    # Model delfinition
-    logging.info("Building the architecture...")
-    s2s = Seq2Seq(
-        n_num_time_feats=len(num_time_feats),
-        cardinalities_time=cat_cardinalities_time,
-        cardinalities_static=cat_cardinalities_timeless,
-        n_forecast_timesteps=forecast_horizon,
+    # Build model
+    s2s = build_architecture(
+        df_time=df_master,
+        df_static=df_master_static,
+        forecast_horizon=forecast_horizon,
         lr=learning_rate,
         cuda=cuda,
-        name=alias,
+        alias=alias,
     )
-    logging.info("Architecture built successfully!")
     epoch, global_step, best_loss = s2s.load_checkpoint(best=False)
+
     wandb.watch(s2s)
 
     # Define summary writer
@@ -109,8 +81,6 @@ if __name__ == "__main__":
                 x_num_time=ntb,
                 x_cat_time=ctb,
                 x_cat_static=csb,
-                cat_time_names=cat_time_feats,
-                cat_static_names=cat_static_feats,
                 target=target,
             )
             loss = loss.data.cpu().numpy()
@@ -170,8 +140,6 @@ if __name__ == "__main__":
                 x_num_time=ntb,
                 x_cat_time=ctb,
                 x_cat_static=csb,
-                cat_time_names=cat_time_feats,
-                cat_static_names=cat_static_feats,
                 target=target,
             )
             global_step += 1
