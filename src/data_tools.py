@@ -379,7 +379,6 @@ class TestDataGetter(DataGetter):
     def process(self, df):
         df["onpromotion"] = ((df["onpromotion"] - 0.5) * 2).astype(float)
         df["date"] = df.date.str.replace("-", "").astype(int)
-        df["unit_sales"] = np.log1p(np.clip(df.unit_sales, 0, None))
         return df
 
 
