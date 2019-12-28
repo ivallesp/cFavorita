@@ -641,3 +641,27 @@ def get_batches_generator(
             cat_static_batch = cat_static_batch.cuda()
             target = target.cuda()
         yield numeric_time_batch, cat_time_batch, cat_static_batch, target
+
+
+def get_data_cubes(sample):
+    # Load data dependent on time
+    logger.info("Generating time-dependent dataset...")
+    df_master = FactoryLoader().load("master", sample=sample)
+    logger.info(f"Time dataset generated successfully! Shape: {df_master.shape}")
+    logger.info("Converting time-dependent dataset to data cube...")
+    df_master = get_records_cube_from_df(df=df_master)
+    logger.info(f"Data cube successfully generated! Shape: {df_master.shape}")
+
+    # Load static data
+    logger.info("Generating static dataset...")
+    df_master_static = FactoryLoader().load("master_timeless", sample=sample)
+    df_master_static = df_master_static.to_records(index=False)
+    logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
+
+    # Check and clean redundant data
+    keys = ["store_nbr", "item_nbr"]
+    assert (df_master[keys][:, 0] == df_master_static[keys]).all()
+    keys = ["date", "store_nbr", "item_nbr", "id"]
+    new_vars = np.setdiff1d(df_master.dtype.names, keys)
+    df_master = df_master[new_vars]
+    return df_master, df_master_static
