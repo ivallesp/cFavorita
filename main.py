@@ -17,6 +17,7 @@ from src.data_tools import (
     FactoryLoader,
     get_batches_generator,
     get_records_cube_from_df,
+    shuffle_multiple,
 )
 from src.general_utilities import get_custom_project_config, log_config
 
