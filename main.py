@@ -58,9 +58,6 @@ if __name__ == "__main__":
         df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
         logger.info("Shuffle successful!")
 
-        # ! Validation phase
-        logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
-        is_best = False
         batcher_dev = get_batches_generator(
             df_time=df_master,
             df_static=df_master_static,
@@ -69,6 +66,19 @@ if __name__ == "__main__":
             shuffle_present=False,
             cuda=cuda,
         )
+
+        batcher_train = get_batches_generator(
+            df_time=df_master[:, :-forecast_horizon],
+            df_static=df_master_static,
+            batch_size=batch_size,
+            forecast_horizon=forecast_horizon,
+            shuffle_present=True,
+            cuda=cuda,
+        )
+
+        # ! Validation phase
+        logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
+        is_best = False
         metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev)
 
         # ! Model serialization
@@ -81,23 +91,14 @@ if __name__ == "__main__":
 
         # ! Training phase
         logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
-
-        batcher_train = get_batches_generator(
-            df_time=df_master[:, :-forecast_horizon],
-            df_static=df_master_static,
-            batch_size=batch_size,
-            forecast_horizon=forecast_horizon,
-            shuffle_present=True,
-            cuda=cuda,
-        )
         metrics_train = run_training_epoch(model=s2s, batcher=batcher_train)
 
         # ! Report
         for m in metrics_dev:
-            sw.add_scalar("validation/epoch/{m}", metrics_dev[m], epoch)
+            sw.add_scalar(f"validation/epoch/{m}", metrics_dev[m], epoch)
 
         for m in metrics_train:
-            sw.add_scalar("train/epoch/{m}", metrics_train[m], epoch)
+            sw.add_scalar(f"train/epoch/{m}", metrics_train[m], epoch)
 
         metrics_dev = {k + "_dev": v for k, v in metrics_dev.items()}
         metrics_train = {k + "_train": v for k, v in metrics_train.items()}
