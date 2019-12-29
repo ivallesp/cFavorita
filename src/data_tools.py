@@ -588,10 +588,10 @@ def get_batches_generator(
         return_incomplete_batches=False,
     )
 
-    num_time_feats = np.intersect1d(numeric_feats, df_time.dtype.names)
-    num_static_feats = np.intersect1d(numeric_feats, df_static.dtype.names)
-    cat_time_feats = np.intersect1d(categorical_feats, df_time.dtype.names)
-    cat_static_feats = np.intersect1d(categorical_feats, df_static.dtype.names)
+    num_time_feats = [c for c in df_time.dtype.names if c in numeric_feats]
+    num_static_feats = [c for c in df_static.dtype.names if c in numeric_feats]
+    cat_static_feats = [c for c in df_static.dtype.names if c in categorical_feats]
+    cat_time_feats = [c for c in df_time.dtype.names if c in categorical_feats]
 
     for batch_time, batch_static in batcher:
         if shuffle_present:
@@ -600,7 +600,7 @@ def get_batches_generator(
             present = time_steps - forecast_horizon
 
         # Numerical time-dependent features
-        numeric_time_batch = batch_time[num_time_feats][:, :present]
+        numeric_time_batch = batch_time[np.array(num_time_feats)][:, :present]
 
         # Categorical time-dependent features
         cat_time_batch = batch_time[cat_time_feats][:, :present]
