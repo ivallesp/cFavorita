@@ -10,7 +10,12 @@ from src.common_paths import (
     get_model_path,
     get_tensorboard_path,
 )
-from src.data_tools import get_batches_generator, shuffle_multiple, get_data_cubes
+from src.data_tools import (
+    shuffle_multiple,
+    get_train_data_loader,
+    get_dev_data_loader,
+    get_data_cubes,
+)
 from src.general_utilities import get_custom_project_config, log_config
 from src.model import build_architecture, run_validation_epoch, run_training_epoch
 
@@ -34,6 +39,24 @@ if __name__ == "__main__":
     # Load data
     df_master, df_master_static = get_data_cubes(sample)
 
+    # Define batchers
+    batcher_train = get_train_data_loader(
+        df_time=df_master,
+        df_static=df_master_static,
+        batch_size=batch_size,
+        forecast_horizon=forecast_horizon,
+        n_jobs=4,
+        cuda=cuda,
+    )
+    batcher_dev = get_dev_data_loader(
+        df_time=df_master,
+        df_static=df_master_static,
+        batch_size=batch_size,
+        forecast_horizon=forecast_horizon,
+        n_jobs=4,
+        cuda=cuda,
+    )
+
     # Build model
     s2s = build_architecture(
         df_time=df_master,
@@ -54,28 +77,6 @@ if __name__ == "__main__":
 
     logging.info(f"Starting the training loop!")
     for epoch in range(epoch, 10000):  # Epochs loop
-        logger.info("Shuffling dataframe...")
-        df_master, df_master_static = shuffle_multiple(df_master, df_master_static)
-        logger.info("Shuffle successful!")
-
-        batcher_dev = get_batches_generator(
-            df_time=df_master,
-            df_static=df_master_static,
-            batch_size=batch_size,
-            forecast_horizon=forecast_horizon,
-            shuffle_present=False,
-            cuda=cuda,
-        )
-
-        batcher_train = get_batches_generator(
-            df_time=df_master[:, :-forecast_horizon],
-            df_static=df_master_static,
-            batch_size=batch_size,
-            forecast_horizon=forecast_horizon,
-            shuffle_present=True,
-            cuda=cuda,
-        )
-
         # ! Validation phase
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False

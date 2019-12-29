@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
+from torch.utils.data.sampler import BatchSampler, RandomSampler, SequentialSampler
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from src.common_paths import get_data_path
@@ -569,74 +571,6 @@ def get_categorical_cardinalities(
     return categorical_cardinalities + categorical_cardinalities_static
 
 
-def get_batches_generator(
-    df_time,
-    df_static,
-    batch_size=128,
-    min_history=300,
-    forecast_horizon=7,
-    shuffle_present=True,
-    cuda=False,
-):
-    from src.constants import numeric_feats, categorical_feats, target_name
-
-    time_steps = df_time.shape[1]
-
-    batcher = batching(
-        list_of_iterables=[df_time, df_static],
-        n=batch_size,
-        return_incomplete_batches=False,
-    )
-
-    num_time_feats = [c for c in df_time.dtype.names if c in numeric_feats]
-    num_static_feats = [c for c in df_static.dtype.names if c in numeric_feats]
-    cat_static_feats = [c for c in df_static.dtype.names if c in categorical_feats]
-    cat_time_feats = [c for c in df_time.dtype.names if c in categorical_feats]
-
-    for batch_time, batch_static in batcher:
-        if shuffle_present:
-            present = random.randint(min_history, time_steps - forecast_horizon)
-        else:
-            present = time_steps - forecast_horizon
-
-        # Numerical time-dependent features
-        numeric_time_batch = batch_time[np.array(num_time_feats)][:, :present]
-
-        # Categorical time-dependent features
-        cat_time_batch = batch_time[cat_time_feats][:, :present]
-
-        # Numerical static features (Not defined)
-        # numeric_static_batch = batch_static[num_static_feats]
-
-        # Categorical static features
-        cat_static_batch = batch_static[cat_static_feats]
-
-        # Target
-        target = batch_time[target_name][:, present : (present + forecast_horizon)]
-
-        # Convert to arrays
-        numeric_time_batch = recarray_to_array(numeric_time_batch, np.float32).swapaxes(
-            0, 1
-        )
-        cat_time_batch = recarray_to_array(cat_time_batch, np.int32).swapaxes(0, 1)
-        cat_static_batch = recarray_to_array(cat_static_batch, np.int32)
-        target = target.astype(np.float32).swapaxes(0, 1)
-
-        # Convert to torch tensors
-        numeric_time_batch = torch.from_numpy(numeric_time_batch)
-        cat_time_batch = torch.from_numpy(cat_time_batch).long()
-        cat_static_batch = torch.from_numpy(cat_static_batch).long()
-        target = torch.from_numpy(target)
-
-        # Move to cuda if required
-        if cuda:
-            numeric_time_batch = numeric_time_batch.cuda()
-            cat_time_batch = cat_time_batch.cuda()
-            cat_static_batch = cat_static_batch.cuda()
-            target = target.cuda()
-        yield numeric_time_batch, cat_time_batch, cat_static_batch, target
-
-
 def get_data_cubes(sample):
     # Load data dependent on time
     logger.info("Generating time-dependent dataset...")
@@ -659,3 +593,129 @@ def get_data_cubes(sample):
     new_vars = np.setdiff1d(df_master.dtype.names, keys)
     df_master = df_master[new_vars]
     return df_master, df_master_static
+
+
+class cFDataset(Dataset):
+    def __init__(
+        self, df_time, df_static, shuffle_present, forecast_horizon, min_history, cuda
+    ):
+        from src.constants import (
+            numeric_feats as nums,
+            categorical_feats as cats,
+            target_name,
+        )
+
+        self.cuda = cuda
+
+        self.df_time = df_time
+        self.df_static = df_static
+        self.min_history = min_history
+        self.forecast_horizon = forecast_horizon
+        self.shuffle_present = shuffle_present
+        self.time_steps = df_time.shape[1]
+        self.batches = df_time.shape[0]
+        assert self.batches == df_static.shape[0]
+
+        self.target_name = target_name
+        self.num_time_feats = [c for c in df_time.dtype.names if c in nums]
+        self.num_static_feats = [c for c in df_static.dtype.names if c in nums]
+        self.cat_static_feats = [c for c in df_static.dtype.names if c in cats]
+        self.cat_time_feats = [c for c in df_time.dtype.names if c in cats]
+
+    def __len__(self):
+        return self.batches
+
+    def __getitem__(self, idx):
+        ts = self.time_steps
+        fh = self.forecast_horizon
+        if self.shuffle_present:
+            last_time_step = self.time_steps - self.forecast_horizon
+            present = random.randint(self.min_history, last_time_step)
+        else:
+            present = ts - fh
+
+        batch_time = self.df_time[idx]
+        batch_static = self.df_static[idx]
+
+        # Numerical time-dependent features batch
+        ntb = batch_time[np.array(self.num_time_feats)][:, :present]
+        ntb = recarray_to_array(ntb, np.float32).swapaxes(0, 1)
+        ntb = torch.from_numpy(ntb)
+
+        # Categorical time-dependent features batch
+        ctb = batch_time[np.array(self.cat_time_feats)][:, :present]
+        ctb = recarray_to_array(ctb, np.int32).swapaxes(0, 1)
+        ctb = torch.from_numpy(ctb).long()
+
+        # Categorical static features batch
+        csb = batch_static[np.array(self.cat_static_feats)]
+        csb = recarray_to_array(csb, np.int32)
+        csb = torch.from_numpy(csb).long()
+
+        # Target
+        target = batch_time[self.target_name][:, present : (present + fh)]
+        target = target.astype(np.float32).swapaxes(0, 1)
+        target = torch.from_numpy(target).long()
+
+        # Cuda?
+        if self.cuda:
+            ntb = ntb.pin_memory()
+            ctb = ctb.pin_memory()
+            csb = csb.pin_memory()
+            target = target.pin_memory()
+        return ntb, ctb, csb, target
+
+
+def _collate_fn(batch):
+    assert len(batch) == 1
+    return batch[0]  # Only one element
+
+
+def get_dev_data_loader(
+    df_time,
+    df_static,
+    batch_size=128,
+    forecast_horizon=15,
+    min_history=300,
+    n_jobs=4,
+    cuda=False,
+):
+    cfd = cFDataset(
+        df_time=df_time,
+        df_static=df_static,
+        shuffle_present=False,
+        forecast_horizon=forecast_horizon,
+        min_history=min_history,
+        cuda=cuda,
+    )
+    base_sampler = SequentialSampler(cfd)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
+    dataloader = DataLoader(
+        cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
+    )
+    return dataloader
+
+
+def get_train_data_loader(
+    df_time,
+    df_static,
+    batch_size=128,
+    forecast_horizon=15,
+    min_history=300,
+    n_jobs=4,
+    cuda=False,
+):
+    cfd = cFDataset(
+        df_time=df_time[:, :-forecast_horizon],
+        df_static=df_static,
+        shuffle_present=True,
+        forecast_horizon=forecast_horizon,
+        min_history=min_history,
+        cuda=cuda,
+    )
+    base_sampler = RandomSampler(cfd)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
+    dataloader = DataLoader(
+        cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
+    )
+    return dataloader
