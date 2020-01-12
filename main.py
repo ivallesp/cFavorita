@@ -33,6 +33,7 @@ if __name__ == "__main__":
     batch_size = config["batch_size"]
     forecast_horizon = config["forecast_horizon"]
     learning_rate = config["learning_rate"]
+    n_threads = config["n_threads"]
     log_config(config)
     wandb.config.update(config)
 
@@ -45,14 +46,14 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=8
+        n_jobs=n_threads
     )
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=8
+        n_jobs=n_threads
     )
 
     # Build model
