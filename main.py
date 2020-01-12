@@ -36,7 +36,7 @@ if __name__ == "__main__":
     learning_rate = config["learning_rate"]
     n_threads = config["n_threads"]
     log_config(config)
-    wandb.init(project="cFavorita", config=config, id=alias, resume=True)
+    wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config)
     
     # Set random seed
