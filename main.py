@@ -79,12 +79,12 @@ if __name__ == "__main__":
     # Define summary writer
     summaries_path = os.path.join(get_tensorboard_path(), alias)
     sw = SummaryWriter(log_dir=summaries_path)
-    logging.info(f"Summary writer instantiated at {summaries_path}")
+    logger.info(f"Summary writer instantiated at {summaries_path}")
 
-    logging.info(f"Starting the training loop!")
+    logger.info(f"Starting the training loop!")
     for epoch in range(epoch, 10000):  # Epochs loop
         # ! Validation phase
-        logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
+        logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
         metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev, cuda=cuda)
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         )
 
         # ! Training phase
-        logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
+        logger.info(f"EPOCH: {epoch:06d} | Training phase started...")
         metrics_train = run_training_epoch(model=s2s, batcher=batcher_train, cuda=cuda)
 
         # ! Report
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         metrics_train = {k + "_train": v for k, v in metrics_train.items()}
         metrics = {**metrics_dev, **metrics_train}
 
-        logging.info(
+        logger.info(
             f"EPOCH: {epoch:06d} finished!"
             f"\n\tValidation | Loss = {metrics['loss_dev']} | "
             f"MALE = {metrics['male_dev']} | MAPE = {metrics['mape_dev']} - "
@@ -124,7 +124,9 @@ if __name__ == "__main__":
         wandb.log({**metrics, **{"epoch": epoch}})
 
         if epoch % 200 == 0:  # Save to wandb
+            logger.info("Uploading state...")
             path = get_model_path(alias=alias)
             wandb.save(os.path.join(path, "*"))
             wandb.save(os.path.join(get_log_config_filepath(), "*"))
             wandb.save(os.path.join(get_tensorboard_path(), "*"))
+            logger.info("Weight uploaded successfully!")
