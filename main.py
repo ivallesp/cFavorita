@@ -1,5 +1,7 @@
 import logging.config
 import os
+import random
+import torch
 
 import numpy as np
 import wandb
@@ -36,7 +38,12 @@ if __name__ == "__main__":
     n_threads = config["n_threads"]
     log_config(config)
     wandb.config.update(config)
-
+    
+    # Set random seed
+    torch.manual_seed(random_seed)
+    np.random.seed(random_seed)
+    random.seed(random_seed)
+    
     # Load data
     df_master, df_master_static = get_data_cubes(sample)
 
