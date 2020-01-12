@@ -597,15 +597,13 @@ def get_data_cubes(sample):
 
 class cFDataset(Dataset):
     def __init__(
-        self, df_time, df_static, shuffle_present, forecast_horizon, min_history, cuda
+        self, df_time, df_static, shuffle_present, forecast_horizon, min_history
     ):
         from src.constants import (
             numeric_feats as nums,
             categorical_feats as cats,
             target_name,
         )
-
-        self.cuda = cuda
 
         self.df_time = df_time
         self.df_static = df_static
@@ -657,12 +655,6 @@ class cFDataset(Dataset):
         target = target.astype(np.float32).swapaxes(0, 1)
         target = torch.from_numpy(target).long()
 
-        # Cuda?
-        if self.cuda:
-            ntb = ntb.pin_memory()
-            ctb = ctb.pin_memory()
-            csb = csb.pin_memory()
-            target = target.pin_memory()
         return ntb, ctb, csb, target
 
 
@@ -678,7 +670,6 @@ def get_dev_data_loader(
     forecast_horizon=15,
     min_history=300,
     n_jobs=4,
-    cuda=False,
 ):
     cfd = cFDataset(
         df_time=df_time,
@@ -686,7 +677,6 @@ def get_dev_data_loader(
         shuffle_present=False,
         forecast_horizon=forecast_horizon,
         min_history=min_history,
-        cuda=cuda,
     )
     base_sampler = SequentialSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
@@ -703,7 +693,6 @@ def get_train_data_loader(
     forecast_horizon=15,
     min_history=300,
     n_jobs=4,
-    cuda=False,
 ):
     cfd = cFDataset(
         df_time=df_time[:, :-forecast_horizon],
@@ -711,7 +700,6 @@ def get_train_data_loader(
         shuffle_present=True,
         forecast_horizon=forecast_horizon,
         min_history=min_history,
-        cuda=cuda,
     )
     base_sampler = RandomSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)

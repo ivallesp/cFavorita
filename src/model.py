@@ -49,19 +49,19 @@ def build_architecture(df_time, df_static, forecast_horizon, lr, cuda, alias):
     return s2s
 
 
-def run_validation_epoch(model, batcher):
+def run_validation_epoch(model, batcher, cuda):
     task = "validate"
-    metrics = _run_epoch(model=model, batcher=batcher, task=task)
+    metrics = _run_epoch(model=model, batcher=batcher, task=task, cuda=cuda)
     return metrics
 
 
-def run_training_epoch(model, batcher):
+def run_training_epoch(model, batcher, cuda):
     task = "train"
-    metrics = _run_epoch(model=model, batcher=batcher, task=task)
+    metrics = _run_epoch(model=model, batcher=batcher, task=task, cuda=cuda)
     return metrics
 
 
-def _run_epoch(model, batcher, task="validate"):
+def _run_epoch(model, batcher, task="validate", cuda=False):
     if task == "validate":
         f = model.loss
     elif task == "train":
@@ -75,6 +75,11 @@ def _run_epoch(model, batcher, task="validate"):
     total_target_dev = 0
     total_log_target_dev = 0
     for (c, (ntb, ctb, csb, target)) in enumerate(batcher):
+        if cuda:
+            ntb = ntb.cuda()
+            ctb = ctb.cuda()
+            csb = csb.cuda()
+            target = target.cuda()
         loss, forecast = f(
             x_num_time=ntb, x_cat_time=ctb, x_cat_static=csb, target=target
         )

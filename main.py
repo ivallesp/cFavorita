@@ -45,16 +45,14 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=4,
-        cuda=cuda,
+        n_jobs=8
     )
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=4,
-        cuda=cuda,
+        n_jobs=8
     )
 
     # Build model
@@ -80,7 +78,7 @@ if __name__ == "__main__":
         # ! Validation phase
         logging.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
-        metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev)
+        metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev, cuda=cuda)
 
         # ! Model serialization
         if metrics_dev["loss"] < best_loss:
@@ -92,7 +90,7 @@ if __name__ == "__main__":
 
         # ! Training phase
         logging.info(f"EPOCH: {epoch:06d} | Training phase started...")
-        metrics_train = run_training_epoch(model=s2s, batcher=batcher_train)
+        metrics_train = run_training_epoch(model=s2s, batcher=batcher_train, cuda=cuda)
 
         # ! Report
         for m in metrics_dev:
