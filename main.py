@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         wandb.log({**metrics, **{"epoch": epoch}})
 
-        if epoch % 10 == 0:  # Save to wandb
+        if epoch % 200 == 0:  # Save to wandb
             path = get_model_path(alias=alias)
             wandb.save(os.path.join(path, "*"))
             wandb.save(os.path.join(get_log_config_filepath(), "*"))
