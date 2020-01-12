@@ -24,7 +24,6 @@ from src.model import build_architecture, run_validation_epoch, run_training_epo
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
-wandb.init(project="cFavorita")
 
 if __name__ == "__main__":
     config = get_custom_project_config()
@@ -37,6 +36,7 @@ if __name__ == "__main__":
     learning_rate = config["learning_rate"]
     n_threads = config["n_threads"]
     log_config(config)
+    wandb.init(project="cFavorita", config=config, id=alias, resume=True)
     wandb.config.update(config)
     
     # Set random seed
