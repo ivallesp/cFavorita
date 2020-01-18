@@ -136,7 +136,7 @@ class Encoder(nn.Module):
     def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
         super().__init__()
         num_layers_rnn = 3
-        num_neurons_rnn = 512
+        num_neurons_rnn = 256
         self.cuda_ = cuda
         self.embs = {}
         for cat in categorical_cardinalities:
@@ -169,7 +169,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
-        self.num_neurons_rnn = 512
+        self.num_neurons_rnn = 256
         self.num_layers_rnn = 3
         self.rnn_decoder = nn.LSTM(
             input_size=1,
