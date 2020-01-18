@@ -135,6 +135,8 @@ def torch_rmse(actual, forecast):
 class Encoder(nn.Module):
     def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
         super().__init__()
+        num_layers_rnn = 3
+        num_neurons_rnn = 512
         self.cuda_ = cuda
         self.embs = {}
         for cat in categorical_cardinalities:
@@ -147,7 +149,9 @@ class Encoder(nn.Module):
             self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         input_sz = int(embs_sz + n_num_time_feats)
-        self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
+        self.rnn_encoder = nn.LSTM(
+            input_size=input_sz, hidden_size=num_neurons_rnn, num_layers=num_layers_rnn
+        )
 
     def forward(self, x_num_time, x_cat_time, cat_time_names):
         emb_feats = []
@@ -165,8 +169,13 @@ class Decoder(nn.Module):
         super().__init__()
         self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
-        self.n_recurrent_cells = 128
-        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
+        self.num_neurons_rnn = 512
+        self.num_layers_rnn = 3
+        self.rnn_decoder = nn.LSTM(
+            input_size=1,
+            hidden_size=self.num_neurons_rnn,
+            num_layers=self.num_layers_rnn,
+        )
         self.embs = {}
 
         for cat in categorical_cardinalities:
@@ -179,7 +188,9 @@ class Decoder(nn.Module):
             self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
 
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
-        thought_sz = self.n_recurrent_cells * 2
+        thought_sz = (
+            self.num_neurons_rnn * 2 * self.num_layers_rnn
+        )  # rnn cells * 2 states * n_layers
         context_thought_sz = thought_sz + embs_sz
         cd_h1 = nn.Linear(in_features=context_thought_sz, out_features=512)
         cd_h2 = nn.Linear(in_features=512, out_features=384)
@@ -187,12 +198,11 @@ class Decoder(nn.Module):
         self.conditioning = nn.Sequential(
             cd_h1, nn.ReLU(True), cd_h2, nn.ReLU(True), cd_h3
         )
-        td_h1 = nn.Linear(in_features=self.n_recurrent_cells, out_features=128)
+        td_h1 = nn.Linear(in_features=self.num_neurons_rnn, out_features=128)
         td_h2 = nn.Linear(in_features=128, out_features=1)
         self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
 
     def forward(self, x_cat_static, cat_static_names, state):
-        # Mock the input of the decoder
         # TODO: Adapt forward looking features
         batch_size = x_cat_static.shape[0]
         assert x_cat_static.shape[-1] == len(cat_static_names)
@@ -200,14 +210,24 @@ class Decoder(nn.Module):
         emb_feats = []
         for i, cat_feat_name in enumerate(cat_static_names):
             emb_feats += [self.embs[cat_feat_name](x_cat_static[:, i].long())]
-            # TODO: make all the tensor long to enhance efficiency
 
-        thought = torch.cat(state, -1).squeeze()
+        thought = torch.cat(state, -1)  # Join all the states
+        batch_size = thought.shape[1]  # Get the batch size
+        thought = thought.permute(1, 0, 2)  # Put the batch axis first
+        thought = thought.reshape(batch_size, -1)  # Join all the states
         context_thought = torch.cat(emb_feats + [thought], -1).squeeze()
         context_thought = self.conditioning(context_thought)
+        state_size = self.num_neurons_rnn * self.num_layers_rnn
+        state_shape_flip = (batch_size, self.num_layers_rnn, self.num_neurons_rnn)
         context_thought = (
-            context_thought[:, : self.n_recurrent_cells].unsqueeze(0).contiguous(),
-            context_thought[:, self.n_recurrent_cells :].unsqueeze(0).contiguous(),
+            context_thought[:, :state_size]
+            .reshape(state_shape_flip)
+            .permute(1, 0, 2)
+            .contiguous(),
+            context_thought[:, state_size:]
+            .reshape(state_shape_flip)
+            .permute(1, 0, 2)
+            .contiguous(),
         )
 
         input_decoder = torch.zeros(
