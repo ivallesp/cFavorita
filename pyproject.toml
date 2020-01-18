@@ -22,7 +22,7 @@ ipython = "^7.8"
 ipykernel = "^5.1"
 
 [custom]
-alias = "recurrent_seq2seq_v0.1"
+alias = "recurrent_seq2seq_v0.2"
 cuda = true
 sample = false
 random_seed = 655321
