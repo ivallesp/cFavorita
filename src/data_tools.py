@@ -471,10 +471,13 @@ class MasterDataGetter(DataGetter):
         df = df.merge(df_dates, on="date", how="left")
         logger.info(f"Date variables calculated successfully! shape={df.shape}")
 
+        self.cat_to_code = {}
         for var in categorical_feats:
             if var in df.columns:
                 logger.info("Calculating {} categorical var...".format(var))
-                df[var] = pd.Categorical(df[var]).codes
+                cat = pd.Categorical(df[var])
+                self.cat_to_code[var] = dict(zip(cat, cat.codes))
+                df[var] = cat.codes
         df["dcoilwtico"] = (df["dcoilwtico"] - 50) / 50
         df = reduce_mem_usage(df)
         return df
@@ -546,10 +549,13 @@ class MasterTimelessGetter(DataGetter):
         logger.info(
             "NA Data filled with zeros successfully! Reducing the size of the dataset..."
         )
+        self.cat_to_code = {}
         for var in categorical_feats:
             if var in df.columns:
                 logger.info("Calculating {} categorical var...".format(var))
-                df[var] = pd.Categorical(df[var]).codes
+                cat = pd.Categorical(df[var])
+                self.cat_to_code[var] = dict(zip(cat, cat.codes))
+                df[var] = cat.codes
         df = reduce_mem_usage(df)
         return df
 
@@ -574,7 +580,8 @@ def get_categorical_cardinalities(
 def get_data_cubes(sample):
     # Load data dependent on time
     logger.info("Generating time-dependent dataset...")
-    df_master = FactoryLoader().load("master", sample=sample)
+    master_fl = FactoryLoader()
+    df_master = master_fl.load("master", sample=sample)
     logger.info(f"Time dataset generated successfully! Shape: {df_master.shape}")
     logger.info("Converting time-dependent dataset to data cube...")
     df_master = get_records_cube_from_df(df=df_master)
@@ -582,7 +589,8 @@ def get_data_cubes(sample):
 
     # Load static data
     logger.info("Generating static dataset...")
-    df_master_static = FactoryLoader().load("master_timeless", sample=sample)
+    master_static_fl = FactoryLoader()
+    df_master_static = master_static_fl.load("master_timeless", sample=sample)
     df_master_static = df_master_static.to_records(index=False)
     logger.info(f"Static data generated successfully! Shape: {df_master_static.shape}")
 
@@ -592,12 +600,23 @@ def get_data_cubes(sample):
     keys = ["date", "store_nbr", "item_nbr", "id"]
     new_vars = np.setdiff1d(df_master.dtype.names, keys)
     df_master = df_master[new_vars]
-    return df_master, df_master_static
+    return (
+        df_master,
+        df_master_static,
+        master_fl.getter.cat_to_code,
+        master_static_fl.getter.cat_to_code,
+    )
 
 
 class cFDataset(Dataset):
     def __init__(
-        self, df_time, df_static, shuffle_present, forecast_horizon, min_history
+        self,
+        df_time,
+        df_static,
+        shuffle_present,
+        forecast_horizon,
+        min_history,
+        target=True,
     ):
         from src.constants import (
             numeric_feats as nums,
@@ -664,12 +683,7 @@ def _collate_fn(batch):
 
 
 def get_dev_data_loader(
-    df_time,
-    df_static,
-    batch_size=128,
-    forecast_horizon=15,
-    min_history=300,
-    n_jobs=4,
+    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4,
 ):
     cfd = cFDataset(
         df_time=df_time,
@@ -687,12 +701,7 @@ def get_dev_data_loader(
 
 
 def get_train_data_loader(
-    df_time,
-    df_static,
-    batch_size=128,
-    forecast_horizon=15,
-    min_history=300,
-    n_jobs=4,
+    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4,
 ):
     cfd = cFDataset(
         df_time=df_time[:, :-forecast_horizon],
@@ -703,6 +712,24 @@ def get_train_data_loader(
     )
     base_sampler = RandomSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
+    dataloader = DataLoader(
+        cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
+    )
+    return dataloader
+
+
+def get_live_data_loader(
+    df_time, df_static, batch_size=128, n_jobs=4,
+):
+    cfd = cFDataset(
+        df_time=df_time,
+        df_static=df_static,
+        shuffle_present=False,
+        forecast_horizon=0,
+        min_history=None,
+    )
+    base_sampler = SequentialSampler(cfd)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
     dataloader = DataLoader(
         cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
     )

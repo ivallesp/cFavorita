@@ -38,14 +38,14 @@ if __name__ == "__main__":
     log_config(config)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config)
-    
+
     # Set random seed
     torch.manual_seed(random_seed)
     np.random.seed(random_seed)
     random.seed(random_seed)
-    
+
     # Load data
-    df_master, df_master_static = get_data_cubes(sample)
+    df_master, df_master_static, cat_dict, cat_dict_static = get_data_cubes(sample)
 
     # Define batchers
     batcher_train = get_train_data_loader(
@@ -53,14 +53,14 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=n_threads
+        n_jobs=n_threads,
     )
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
-        n_jobs=n_threads
+        n_jobs=n_threads,
     )
 
     # Build model
