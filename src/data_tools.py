@@ -53,11 +53,14 @@ def check_if_integer(column, tolerance=0.01):
         return False
 
 
-def reduce_mem_usage(df, int_cast=True, obj_to_category=False, subset=None):
+def reduce_mem_usage(
+    df, int_cast=True, float_reduction=False, obj_to_category=False, subset=None
+):
     """
     Iterate through all the columns of a dataframe and modify the data type to reduce memory usage.
     :param df: dataframe to reduce (pd.DataFrame)
     :param int_cast: indicate if columns should be tried to be casted to int (bool)
+    :param float_reduction: if true, the float columns are tried to be reduced. There is always loss, use carefully. (bool)
     :param obj_to_category: convert non-datetime related objects to category dtype (bool)
     :param subset: subset of columns to analyse (list)
     :return: dataset with the column dtypes adjusted (pd.DataFrame)
@@ -108,7 +111,7 @@ def reduce_mem_usage(df, int_cast=True, obj_to_category=False, subset=None):
                     c_min > np.iinfo(np.uint64).min and c_max < np.iinfo(np.uint64).max
                 ):
                     df[col] = df[col].astype(np.uint64)
-            else:
+            elif float_reduction:
                 if (
                     c_min > np.finfo(np.float16).min
                     and c_max < np.finfo(np.float16).max
