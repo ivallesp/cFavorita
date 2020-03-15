@@ -35,7 +35,7 @@ class Seq2Seq(nn.Module):
             n_rec_units=self.n_rec_units_encoder,
             cuda=cuda,
         )
-        self.decoder = Decoder(
+        self.decoder = AttentionDecoder(
             n_forecast_timesteps=n_forecast_timesteps,
             categorical_cardinalities=cardinalities_static,
             n_rec_units=self.n_rec_units_decoder,
