@@ -311,6 +311,7 @@ class AttentionDecoder(nn.Module):
         for i in range(self.n_forecast_timesteps):  # Forecast loop
             # Calculate Attention weights with state and outputs
             state_ = torch.cat([s[0] for s in state], 1).unsqueeze(0)  # Cat state (c,h)
+            # TODO: Study efficiency of the line below
             state_ = torch.cat(
                 [state_] * encoder_timesteps, 0
             )  # Repeat state encoder timesteps
