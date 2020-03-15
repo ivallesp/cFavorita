@@ -24,17 +24,22 @@ class Seq2Seq(nn.Module):
         name,
     ):
         super().__init__()
+        self.n_rec_units_encoder = 128
+        self.n_rec_units_decoder = 128
         self.name = name
         self.cat_time_feats = np.array(list(cardinalities_time.keys()))
         self.cat_static_feats = np.array(list(cardinalities_static.keys()))
         self.encoder = Encoder(
             n_num_time_feats=n_num_time_feats,
             categorical_cardinalities=cardinalities_time,
+            n_rec_units=self.n_rec_units_encoder,
             cuda=cuda,
         )
         self.decoder = Decoder(
             n_forecast_timesteps=n_forecast_timesteps,
             categorical_cardinalities=cardinalities_static,
+            n_rec_units=self.n_rec_units_decoder,
+            n_rec_units_encoder=self.n_rec_units_encoder,
             cuda=cuda,
         )
         self.initialize_weights()
@@ -133,7 +138,7 @@ def torch_rmse(actual, forecast):
 
 
 class Encoder(nn.Module):
-    def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
+    def __init__(self, n_num_time_feats, categorical_cardinalities, n_rec_units, cuda):
         super().__init__()
         self.cuda_ = cuda
         self.embs = nn.ModuleDict()
@@ -146,7 +151,7 @@ class Encoder(nn.Module):
 
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         input_sz = int(embs_sz + n_num_time_feats)
-        self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
+        self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=n_rec_units)
 
     def forward(self, x_num_time, x_cat_time, cat_time_names):
         emb_feats = []
@@ -160,13 +165,22 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, n_forecast_timesteps, categorical_cardinalities, cuda):
+    def __init__(
+        self,
+        n_forecast_timesteps,
+        categorical_cardinalities,
+        n_rec_units,
+        n_rec_units_encoder,
+        cuda,
+    ):
         super().__init__()
+        # Just add for consistency of structure with attention model
+        del n_rec_units_encoder
         self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
-        self.n_recurrent_cells = 128
-        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
-        self.embs = nn.ModuleDict()
+        self.n_rec_units = n_rec_units
+        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_rec_units)
+        self.embs = {}
 
         for cat in categorical_cardinalities:
             self.embs[cat] = nn.Embedding(
@@ -176,7 +190,7 @@ class Decoder(nn.Module):
             )
 
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
-        thought_sz = self.n_recurrent_cells * 2
+        thought_sz = self.n_rec_units * 2
         context_thought_sz = thought_sz + embs_sz
         cd_h1 = nn.Linear(in_features=context_thought_sz, out_features=512)
         cd_h2 = nn.Linear(in_features=512, out_features=384)
@@ -184,7 +198,7 @@ class Decoder(nn.Module):
         self.conditioning = nn.Sequential(
             cd_h1, nn.ReLU(True), cd_h2, nn.ReLU(True), cd_h3
         )
-        td_h1 = nn.Linear(in_features=self.n_recurrent_cells, out_features=128)
+        td_h1 = nn.Linear(in_features=self.n_rec_units, out_features=128)
         td_h2 = nn.Linear(in_features=128, out_features=1)
         self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
 
@@ -203,8 +217,8 @@ class Decoder(nn.Module):
         context_thought = torch.cat(emb_feats + [thought], -1).squeeze()
         context_thought = self.conditioning(context_thought)
         context_thought = (
-            context_thought[:, : self.n_recurrent_cells].unsqueeze(0).contiguous(),
-            context_thought[:, self.n_recurrent_cells :].unsqueeze(0).contiguous(),
+            context_thought[:, : self.n_rec_units].unsqueeze(0).contiguous(),
+            context_thought[:, self.n_rec_units :].unsqueeze(0).contiguous(),
         )
 
         input_decoder = torch.zeros(
