@@ -233,3 +233,104 @@ class Decoder(nn.Module):
         h = self.time_distributed(h)
         output = h.reshape(self.n_forecast_timesteps, batch_size, 1).squeeze()
         return output
+
+
+class AttentionDecoder(nn.Module):
+    def __init__(
+        self,
+        n_forecast_timesteps,
+        categorical_cardinalities,
+        n_rec_units,
+        n_rec_units_encoder,
+        cuda,
+    ):
+        super().__init__()
+        self.cuda_ = cuda
+        self.n_forecast_timesteps = n_forecast_timesteps
+        self.n_rec_units = n_rec_units
+        self.rnn_decoder = nn.LSTM(
+            input_size=n_rec_units_encoder, hidden_size=self.n_rec_units
+        )
+        self.embs = {}
+
+        for cat in categorical_cardinalities:
+            self.embs[cat] = nn.Embedding(
+                num_embeddings=categorical_cardinalities[cat],
+                embedding_dim=embedding_sizes[cat],
+                scale_grad_by_freq=False,
+            )
+            # Register the parameter for updating it (bc. not set as attribute directly)
+            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
+
+        embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
+        thought_sz = self.n_rec_units * 2
+        context_thought_sz = thought_sz + embs_sz
+        cd_h1 = nn.Linear(in_features=context_thought_sz, out_features=512)
+        cd_h2 = nn.Linear(in_features=512, out_features=384)
+        cd_h3 = nn.Linear(in_features=384, out_features=thought_sz)
+        self.conditioning = nn.Sequential(
+            cd_h1, nn.ReLU(True), cd_h2, nn.ReLU(True), cd_h3
+        )
+
+        n_feats = n_rec_units_encoder + self.n_rec_units * 2
+        att_h1 = nn.Linear(in_features=n_feats, out_features=128,)
+        att_h2 = nn.Linear(in_features=128, out_features=1)
+        self.attention = nn.Sequential(att_h1, nn.ReLU(True), att_h2)
+
+        td_h1 = nn.Linear(in_features=self.n_rec_units, out_features=128)
+        td_h2 = nn.Linear(in_features=128, out_features=1)
+        self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
+
+    def forward(self, x_cat_static, cat_static_names, state, outputs_encoder):
+        # Output_encoder shapes
+        encoder_timesteps = outputs_encoder.shape[0]
+        encoder_batch_size = outputs_encoder.shape[1]
+        encoder_output_size = outputs_encoder.shape[2]
+
+        batch_size = x_cat_static.shape[0]
+        assert x_cat_static.shape[-1] == len(cat_static_names)
+
+        emb_feats = []
+        for i, cat_feat_name in enumerate(cat_static_names):
+            emb_feats += [self.embs[cat_feat_name](x_cat_static[:, i].long())]
+            # TODO: make all the tensor long to enhance efficiency
+
+        thought = torch.cat(state, -1).squeeze()
+        context_thought = torch.cat(emb_feats + [thought], -1).squeeze()
+        context_thought = self.conditioning(context_thought)
+        context_thought = (
+            context_thought[:, : self.n_rec_units].unsqueeze(0).contiguous(),
+            context_thought[:, self.n_rec_units :].unsqueeze(0).contiguous(),
+        )
+
+        outputs = []
+        state = context_thought
+        for i in range(self.n_forecast_timesteps):  # Forecast loop
+            # Calculate Attention weights with state and outputs
+            state_ = torch.cat([s[0] for s in state], 1).unsqueeze(0)  # Cat state (c,h)
+            state_ = torch.cat(
+                [state_] * encoder_timesteps, 0
+            )  # Repeat state encoder timesteps
+            att_input = torch.cat(
+                [outputs_encoder, state_], -1
+            )  # Cat state and encoder outputs
+            # Join timesteps and batch_size dimensions
+            n_feats = encoder_output_size + self.n_rec_units * 2
+            att_input = att_input.reshape(-1, n_feats)
+            # Calculate attention weights one by one
+            w_attention = self.attention(att_input).squeeze()
+            # Recover timesteps and batch_size dimensions
+            w_attention = w_attention.reshape(encoder_timesteps, encoder_batch_size)
+            # Apply the Softmax over the timesteps dimension
+            w_attention = torch.nn.Softmax(dim=0)(w_attention)
+
+            # Multiply the weights by the outputs_encoder
+            w_attention = w_attention.unsqueeze(-1)  # Adapt the dims for recycling
+            input_ = (outputs_encoder * w_attention).sum(0, keepdims=True)
+            output, state = self.rnn_decoder(input_, state)
+            outputs.append(output)
+        output = torch.cat(outputs, 0)
+        h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])
+        h = self.time_distributed(h)
+        output = h.reshape(self.n_forecast_timesteps, batch_size, 1).squeeze()
+        return output
