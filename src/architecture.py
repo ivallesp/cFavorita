@@ -48,7 +48,7 @@ class Seq2Seq(nn.Module):
             self.cuda()
 
     def forward(self, x_num_time, x_cat_time, x_cat_static):
-        contextual_thought = self.encoder.forward(
+        output, thought = self.encoder.forward(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             cat_time_names=self.cat_time_feats,
@@ -56,7 +56,8 @@ class Seq2Seq(nn.Module):
         output = self.decoder.forward(
             x_cat_static=x_cat_static,
             cat_static_names=self.cat_static_feats,
-            state=contextual_thought,
+            outputs_encoder=output,
+            state=thought,
         )
         return output
 
@@ -161,8 +162,8 @@ class Encoder(nn.Module):
             # TODO: make all the tensor long to enhance efficiency
 
         time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
-        _, state = self.rnn_encoder(time_features)
-        return state
+        output, state = self.rnn_encoder(time_features)
+        return output, state
 
 
 class Decoder(nn.Module):
@@ -205,9 +206,9 @@ class Decoder(nn.Module):
         td_h2 = nn.Linear(in_features=128, out_features=1)
         self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
 
-    def forward(self, x_cat_static, cat_static_names, state):
-        # Mock the input of the decoder
-        # TODO: Adapt forward looking features
+    def forward(self, x_cat_static, cat_static_names, state, outputs_encoder):
+        # Just add for consistency of structure with attention model
+        del outputs_encoder
         batch_size = x_cat_static.shape[0]
         assert x_cat_static.shape[-1] == len(cat_static_names)
 
