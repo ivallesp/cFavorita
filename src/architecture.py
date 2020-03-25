@@ -251,7 +251,7 @@ class AttentionDecoder(nn.Module):
         self.rnn_decoder = nn.LSTM(
             input_size=n_rec_units_encoder, hidden_size=self.n_rec_units
         )
-        self.embs = {}
+        self.embs = nn.ModuleDict()
 
         for cat in categorical_cardinalities:
             self.embs[cat] = nn.Embedding(
@@ -259,8 +259,7 @@ class AttentionDecoder(nn.Module):
                 embedding_dim=embedding_sizes[cat],
                 scale_grad_by_freq=False,
             )
-            # Register the parameter for updating it (bc. not set as attribute directly)
-            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
+
 
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         thought_sz = self.n_rec_units * 2
