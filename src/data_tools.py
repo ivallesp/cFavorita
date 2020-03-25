@@ -676,7 +676,7 @@ class cFDataset(Dataset):
         # Target
         target = batch_time[self.target_name][:, present : (present + fh)]
         target = target.astype(np.float32).swapaxes(0, 1)
-        target = torch.from_numpy(target).long()
+        target = torch.from_numpy(target)
 
         return ntb, ctb, csb, target
 
@@ -687,7 +687,7 @@ def _collate_fn(batch):
 
 
 def get_dev_data_loader(
-    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4,
+    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
 ):
     cfd = cFDataset(
         df_time=df_time,
@@ -705,7 +705,7 @@ def get_dev_data_loader(
 
 
 def get_train_data_loader(
-    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4,
+    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
 ):
     cfd = cFDataset(
         df_time=df_time[:, :-forecast_horizon],
@@ -722,9 +722,7 @@ def get_train_data_loader(
     return dataloader
 
 
-def get_live_data_loader(
-    df_time, df_static, batch_size=128, n_jobs=4,
-):
+def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
     cfd = cFDataset(
         df_time=df_time,
         df_static=df_static,
