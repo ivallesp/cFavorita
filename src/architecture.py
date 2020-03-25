@@ -136,15 +136,14 @@ class Encoder(nn.Module):
     def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
         super().__init__()
         self.cuda_ = cuda
-        self.embs = {}
+        self.embs = nn.ModuleDict()
         for cat in categorical_cardinalities:
             self.embs[cat] = nn.Embedding(
                 num_embeddings=categorical_cardinalities[cat],
                 embedding_dim=embedding_sizes[cat],
                 scale_grad_by_freq=False,
             )
-            # Register the parameter for updating it (bc. not set as attribute directly)
-            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
+
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         input_sz = int(embs_sz + n_num_time_feats)
         self.rnn_encoder = nn.LSTM(input_size=input_sz, hidden_size=128)
@@ -167,7 +166,7 @@ class Decoder(nn.Module):
         self.n_forecast_timesteps = n_forecast_timesteps
         self.n_recurrent_cells = 128
         self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
-        self.embs = {}
+        self.embs = nn.ModuleDict()
 
         for cat in categorical_cardinalities:
             self.embs[cat] = nn.Embedding(
@@ -175,8 +174,6 @@ class Decoder(nn.Module):
                 embedding_dim=embedding_sizes[cat],
                 scale_grad_by_freq=False,
             )
-            # Register the parameter for updating it (bc. not set as attribute directly)
-            self.register_parameter("emb_mat_" + cat, self.embs[cat].weight)
 
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         thought_sz = self.n_recurrent_cells * 2
