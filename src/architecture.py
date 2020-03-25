@@ -260,7 +260,6 @@ class AttentionDecoder(nn.Module):
                 scale_grad_by_freq=False,
             )
 
-
         embs_sz = np.sum([embedding_sizes[c] for c in categorical_cardinalities.keys()])
         thought_sz = self.n_rec_units * 2
         context_thought_sz = thought_sz + embs_sz
