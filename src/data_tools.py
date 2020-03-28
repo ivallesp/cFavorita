@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from src.common_paths import get_data_path
-from src.constants import categorical_feats
+from src.constants import categorical_feats, items_unseen_in_train
 from src.general_utilities import batching
 
 logger = logging.getLogger(__name__)
@@ -432,7 +432,7 @@ class MasterDataGetter(DataGetter):
         logger.info("Dataset loaded successfully!")
 
         # Performing and merging Cartesian
-        df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
+        df_cartesian = generate_base_table(df_main)
         logger.info("Cartesian join performed!")
         df_cartesian = df_cartesian.sort_values(
             by=["store_nbr", "item_nbr", "date"], ascending=True
@@ -528,7 +528,7 @@ class MasterTimelessGetter(DataGetter):
         logger.info("Dataframe loaded successfully!")
 
         # Performing and merging Cartesian
-        df_cartesian = cartesian_multiple(df_main, ["date", "store_nbr", "item_nbr"])
+        df_cartesian = generate_base_table(df_main)
         df = df_cartesian[["store_nbr", "item_nbr"]].drop_duplicates()
         df = df.sort_values(by=["store_nbr", "item_nbr"], ascending=True)
         del df_main, df_cartesian
@@ -736,3 +736,27 @@ def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
         cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
     )
     return dataloader
+
+
+def generate_base_table(df):
+    # Add the items that appear at test but do not appear at train time
+    # as dummy rows in the train tables (with 0 count), so that the
+    # cartesian expands them along all the dimensions.
+    items = items_unseen_in_train
+    date = [20_170_815] * len(items)
+    stores = [25] * len(items)
+    unit_sales = [0] * len(items)
+    onpromotion = [np.nan] * len(items)
+    df_additional = pd.DataFrame(
+        {
+            "date": date,
+            "store_nbr": stores,
+            "item_nbr": items,
+            "unit_sales": unit_sales,
+            "onpromotion": onpromotion,
+        }
+    )
+    df = pd.concat([df, df_additional], axis=0)
+    # Do the cartesian join
+    df = cartesian_multiple(df, ["date", "store_nbr", "item_nbr"])
+    return df
