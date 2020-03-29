@@ -83,6 +83,7 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
             x_num_time=ntb,
             x_cat_time=ctb,
             x_cat_static=csb,
+            x_fwd=fwb,
             target=target,
             weight=weight,
         )
