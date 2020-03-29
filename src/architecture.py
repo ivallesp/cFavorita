@@ -42,7 +42,7 @@ class Seq2Seq(nn.Module):
         if cuda:
             self.cuda()
 
-    def forward(self, x_num_time, x_cat_time, x_cat_static, x_fwd):
+    def forward(self, x_num_time, x_cat_time, x_cat_static):
         contextual_thought = self.encoder.forward(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
@@ -50,28 +50,27 @@ class Seq2Seq(nn.Module):
         )
         output = self.decoder.forward(
             x_cat_static=x_cat_static,
-            x_fwd=x_fwd,
+            # x_fwd=x_fwd,
             cat_static_names=self.cat_static_feats,
             state=contextual_thought,
         )
         return output
 
-    def loss(self, x_num_time, x_cat_time, x_cat_static, x_fwd, target, weight):
+    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         y_hat = self.forward(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
-            x_fwd=x_fwd,
+            # x_fwd=x_fwd,
         )
         loss = torch_wrmse(target, y_hat, weight)
         return loss, y_hat
 
-    def step(self, x_num_time, x_cat_time, x_cat_static, x_fwd, target, weight):
+    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         loss, y_hat = self.loss(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
-            x_fwd=x_fwd,
             target=target,
             weight=weight,
         )
@@ -180,7 +179,7 @@ class Decoder(nn.Module):
         self.cuda_ = cuda
         self.n_forecast_timesteps = n_forecast_timesteps
         self.n_recurrent_cells = 128
-        self.rnn_decoder = nn.LSTM(input_size=2, hidden_size=self.n_recurrent_cells)
+        self.rnn_decoder = nn.LSTM(input_size=1, hidden_size=self.n_recurrent_cells)
         self.embs = nn.ModuleDict()
 
         for cat in categorical_cardinalities:
@@ -203,7 +202,7 @@ class Decoder(nn.Module):
         td_h2 = nn.Linear(in_features=128, out_features=1)
         self.time_distributed = nn.Sequential(td_h1, nn.ReLU(True), td_h2)
 
-    def forward(self, x_cat_static, x_fwd, cat_static_names, state):
+    def forward(self, x_cat_static, cat_static_names, state):
         # Mock the input of the decoder
         batch_size = x_cat_static.shape[0]
         assert x_cat_static.shape[-1] == len(cat_static_names)
@@ -227,7 +226,7 @@ class Decoder(nn.Module):
             input_decoder = input_decoder.cuda()
         input_decoder[0, :, :] = 1  # GO!
         # Concatenate the fwd looking features
-        input_decoder = torch.cat([input_decoder, x_fwd], dim=2)
+        # input_decoder = torch.cat([input_decoder, x_fwd], dim=2)
         output, _ = self.rnn_decoder(input_decoder, context_thought)
         h = output.reshape(self.n_forecast_timesteps * batch_size, output.shape[-1])
         h = self.time_distributed(h)

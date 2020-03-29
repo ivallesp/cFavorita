@@ -76,14 +76,14 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
             ntb = ntb.cuda()
             ctb = ctb.cuda()
             csb = csb.cuda()
-            fwb = fwb.cuda()
+            # fwb = fwb.cuda()
             target = target.cuda()
             weight = weight.cuda()
         loss, forecast = f(
             x_num_time=ntb,
             x_cat_time=ctb,
             x_cat_static=csb,
-            x_fwd=fwb,
+            # x_fwd=fwb,
             target=target,
             weight=weight,
         )
