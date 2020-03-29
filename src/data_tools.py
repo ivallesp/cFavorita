@@ -519,11 +519,18 @@ class MasterTimelessGetter(DataGetter):
         self.fl_stores = FactoryLoader()
         self.fl_main = FactoryLoader()
         self.fl_items = FactoryLoader()
+        self.fl_test = FactoryLoader()
 
         # Data loading
         df_stores = self.fl_stores.load("stores")
         df_items = self.fl_items.load("items")
         df_main = self.fl_main.load("train")
+
+        # Join test data (16 days immediately after training set) to have onpromotion
+        # data forward-looking
+        df_test = self.fl_test.load("test")
+        df_test = df_test.drop("id", axis=1)
+        df_main = pd.concat([df_main, df_test], axis=0, sort=True)
 
         if sample:
             logger.info("Sampling dataframe...")
