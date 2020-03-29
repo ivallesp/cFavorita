@@ -755,7 +755,7 @@ def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
         df_time=df_time,
         df_static=df_static,
         shuffle_present=False,
-        forecast_horizon=0,
+        forecast_horizon=16,
         min_history=None,
     )
     base_sampler = SequentialSampler(cfd)
