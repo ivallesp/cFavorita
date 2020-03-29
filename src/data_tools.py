@@ -415,12 +415,19 @@ class MasterDataGetter(DataGetter):
         self.fl_oil = FactoryLoader()
         self.fl_transactions = FactoryLoader()
         self.fl_main = FactoryLoader()
+        self.fl_test = FactoryLoader()
 
         # Data loading
         df_holidays = self.fl_holidays.load("holidays_events")
         df_oil = self.fl_oil.load("oil")
         df_transactions = self.fl_transactions.load("transactions")
         df_main = self.fl_main.load("train")
+
+        # Join test data (16 days immediately after training set) to have onpromotion
+        # data forward-looking
+        df_test = self.fl_test.load("test")
+        df_test = df_test.drop("id", axis=1)
+        df_main = pd.concat([df_main, df_test], axis=0, sort=True)
 
         if sample:
             logger.info("Sampling dataframe...")
@@ -622,6 +629,7 @@ class cFDataset(Dataset):
         from src.constants import (
             numeric_feats as nums,
             categorical_feats as cats,
+            forward_feats as fwd,
             target_name,
             weight_name,
         )
@@ -637,6 +645,7 @@ class cFDataset(Dataset):
 
         self.target_name = target_name
         self.weight_name = weight_name
+        self.forward_feats = fwd
         self.num_time_feats = [c for c in df_time.dtype.names if c in nums]
         self.num_static_feats = [c for c in df_static.dtype.names if c in nums]
         self.cat_static_feats = [c for c in df_static.dtype.names if c in cats]
@@ -672,6 +681,11 @@ class cFDataset(Dataset):
         csb = recarray_to_array(csb, np.int32)
         csb = torch.from_numpy(csb).long()
 
+        # Forward looking features batch
+        fwb = batch_time[np.array(self.forward_feats)][:, present : (present + fh)]
+        fwb = recarray_to_array(fwb, np.float32).swapaxes(0, 1)
+        fwb = torch.from_numpy(fwb)
+
         # Target
         target = batch_time[self.target_name][:, present : (present + fh)]
         target = target.astype(np.float32).swapaxes(0, 1)
@@ -685,7 +699,7 @@ class cFDataset(Dataset):
         weight = weight.repeat(fh, 1)  # Expand along time axis
         assert weight.shape == target.shape
 
-        return ntb, ctb, csb, target, weight
+        return ntb, ctb, csb, fwb, target, weight
 
 
 def _collate_fn(batch):
@@ -746,24 +760,6 @@ def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
 
 
 def generate_base_table(df):
-    # Add the items that appear at test but do not appear at train time
-    # as dummy rows in the train tables (with 0 count), so that the
-    # cartesian expands them along all the dimensions.
-    items = items_unseen_in_train
-    date = [20_170_815] * len(items)
-    stores = [25] * len(items)
-    unit_sales = [0] * len(items)
-    onpromotion = [np.nan] * len(items)
-    df_additional = pd.DataFrame(
-        {
-            "date": date,
-            "store_nbr": stores,
-            "item_nbr": items,
-            "unit_sales": unit_sales,
-            "onpromotion": onpromotion,
-        }
-    )
-    df = pd.concat([df, df_additional], axis=0)
     # Do the cartesian join
     df = cartesian_multiple(df, ["date", "store_nbr", "item_nbr"])
     return df

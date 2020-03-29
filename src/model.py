@@ -71,11 +71,12 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
     epoch_loss = 0
     epoch_male = 0
     total_weight = 0
-    for (c, (ntb, ctb, csb, target, weight)) in enumerate(batcher):
+    for (c, (ntb, ctb, csb, fwb, target, weight)) in enumerate(batcher):
         if cuda:
             ntb = ntb.cuda()
             ctb = ctb.cuda()
             csb = csb.cuda()
+            fwb = fwb.cuda()
             target = target.cuda()
             weight = weight.cuda()
         loss, forecast = f(

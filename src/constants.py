@@ -27,6 +27,8 @@ categorical_feats = [
     "item_perishable",
 ]
 
+forward_feats = ["onpromotion"]
+
 embedding_sizes = {
     "store_nbr": 100,
     "item_nbr": 300,
