@@ -329,9 +329,6 @@ class ItemsDataGetter(DataGetter):
             columns={"family": "item_family", "perishable": "item_perishable"}
         )
 
-        # Center and scale
-        df["item_perishable"] = (df["item_perishable"] - 0.5) * 2
-
         # Dummify the categorical vars
         # df = pd.get_dummies(df, columns=["item_family"])
         for var in ["item_family"]:
@@ -626,6 +623,7 @@ class cFDataset(Dataset):
             numeric_feats as nums,
             categorical_feats as cats,
             target_name,
+            weight_name,
         )
 
         self.df_time = df_time
@@ -638,6 +636,7 @@ class cFDataset(Dataset):
         assert self.batches == df_static.shape[0]
 
         self.target_name = target_name
+        self.weight_name = weight_name
         self.num_time_feats = [c for c in df_time.dtype.names if c in nums]
         self.num_static_feats = [c for c in df_static.dtype.names if c in nums]
         self.cat_static_feats = [c for c in df_static.dtype.names if c in cats]
@@ -678,7 +677,15 @@ class cFDataset(Dataset):
         target = target.astype(np.float32).swapaxes(0, 1)
         target = torch.from_numpy(target)
 
-        return ntb, ctb, csb, target
+        # Weight
+        weight = batch_static[self.weight_name]
+        # Weight at the Kaggle competition (1.0 normal, 1.25 perishable)
+        weight = weight.astype(np.float32) * 0.25 + 1
+        weight = torch.from_numpy(weight)
+        weight = weight.repeat(fh, 1)  # Expand along time axis
+        assert weight.shape == target.shape
+
+        return ntb, ctb, csb, target, weight
 
 
 def _collate_fn(batch):

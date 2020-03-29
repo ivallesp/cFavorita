@@ -55,19 +55,20 @@ class Seq2Seq(nn.Module):
         )
         return output
 
-    def loss(self, x_num_time, x_cat_time, x_cat_static, target):
+    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         y_hat = self.forward(
             x_num_time=x_num_time, x_cat_time=x_cat_time, x_cat_static=x_cat_static
         )
-        loss = torch_rmse(target, y_hat)
+        loss = torch_wrmse(target, y_hat, weight)
         return loss, y_hat
 
-    def step(self, x_num_time, x_cat_time, x_cat_static, target):
+    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         loss, y_hat = self.loss(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
             target=target,
+            weight=weight,
         )
         self.optimizer.zero_grad()
         loss.backward()
@@ -132,6 +133,17 @@ def torch_rmse(actual, forecast):
     return rmse
 
 
+def torch_wrmse(actual, forecast, weight):
+    # Assure no shapes mess-up
+    assert weight.shape == forecast.shape
+    assert actual.shape == forecast.shape
+    residuals = actual - forecast
+    sq_residuals = residuals ** 2
+    w_sq_residuals = weight * sq_residuals
+    wrmse = torch.sqrt(torch.sum(w_sq_residuals) / torch.sum(weight))
+    return wrmse
+
+
 class Encoder(nn.Module):
     def __init__(self, n_num_time_feats, categorical_cardinalities, cuda):
         super().__init__()
@@ -152,8 +164,6 @@ class Encoder(nn.Module):
         emb_feats = []
         for i, cat_feat_name in enumerate(cat_time_names):
             emb_feats += [self.embs[cat_feat_name](x_cat_time[:, :, i].long())]
-            # TODO: make all the tensor long to enhance efficiency
-
         time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
         _, state = self.rnn_encoder(time_features)
         return state
@@ -197,7 +207,6 @@ class Decoder(nn.Module):
         emb_feats = []
         for i, cat_feat_name in enumerate(cat_static_names):
             emb_feats += [self.embs[cat_feat_name](x_cat_static[:, i].long())]
-            # TODO: make all the tensor long to enhance efficiency
 
         thought = torch.cat(state, -1).squeeze()
         context_thought = torch.cat(emb_feats + [thought], -1).squeeze()

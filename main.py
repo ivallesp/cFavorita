@@ -12,6 +12,7 @@ from src.common_paths import (
     get_model_path,
     get_tensorboard_path,
 )
+
 from src.data_tools import (
     shuffle_multiple,
     get_train_data_loader,
@@ -113,12 +114,8 @@ if __name__ == "__main__":
 
         logger.info(
             f"EPOCH: {epoch:06d} finished!"
-            f"\n\tValidation | Loss = {metrics['loss_dev']} | "
-            f"MALE = {metrics['male_dev']} | MAPE = {metrics['mape_dev']} - "
-            f"MAPLE = {metrics['log_mape_dev']}"
             f"\n\tTraining | Loss = {metrics['loss_train']} | "
-            f"MALE = {metrics['male_train']} | MAPE = {metrics['mape_train']}  | "
-            f"MAPLE = {metrics['log_mape_train']}"
+            f"\n\tValidation | Loss = {metrics['loss_dev']}"
         )
 
         wandb.log({**metrics, **{"epoch": epoch}})

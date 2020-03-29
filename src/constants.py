@@ -24,6 +24,7 @@ categorical_feats = [
     "holidays_locale",
     "holidays_locale_name",
     "item_family",
+    "item_perishable",
 ]
 
 embedding_sizes = {
@@ -37,9 +38,12 @@ embedding_sizes = {
     "holidays_locale": 20,
     "holidays_locale_name": 20,
     "item_family": 20,
+    "item_perishable": 2,  # Dummy embedding
 }
 
 target_name = "unit_sales"
+
+weight_name = "item_perishable"
 
 items_unseen_in_train = [
     -14586,

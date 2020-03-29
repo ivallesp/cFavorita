@@ -68,41 +68,50 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
         f = model.step
     else:
         ValueError(f"Task specified not defined: {task}")
-    loss_dev = 0
-    male_dev = 0
-    total_abs_miss_dev = 0
-    total_log_abs_miss_dev = 0
-    total_target_dev = 0
-    total_log_target_dev = 0
-    for (c, (ntb, ctb, csb, target)) in enumerate(batcher):
+    epoch_loss = 0
+    epoch_male = 0
+    total_weight = 0
+    for (c, (ntb, ctb, csb, target, weight)) in enumerate(batcher):
         if cuda:
             ntb = ntb.cuda()
             ctb = ctb.cuda()
             csb = csb.cuda()
             target = target.cuda()
+            weight = weight.cuda()
         loss, forecast = f(
-            x_num_time=ntb, x_cat_time=ctb, x_cat_static=csb, target=target
+            x_num_time=ntb,
+            x_cat_time=ctb,
+            x_cat_static=csb,
+            target=target,
+            weight=weight,
         )
 
         loss = loss.data.cpu().numpy()
         forecast = forecast.data.cpu().numpy()
         target = target.data.cpu().numpy()
+        weight = weight.data.cpu().numpy()
+        total_weight += weight.sum()
+
+        assert forecast.shape == target.shape
+        assert target.shape == weight.shape
+
         # Log metrics
-        loss_dev += loss
-        male_dev += np.mean(np.abs(forecast - target))
-        log_abs_miss = np.abs(forecast - target)
-        total_log_abs_miss_dev += log_abs_miss.sum()
-        total_log_target_dev += target.sum()
+        # Loss calculation (WRMSLE)
+        sqrt_miss = loss * np.sqrt(weight.sum())  # Remove the denominator
+        miss = sqrt_miss ** 2  # Remove the sqrt from the numerator
+        epoch_loss += miss  # Accumulate weighted squared differences
+
+        # WMALE calculation
+        abs_miss = np.abs(forecast - target)  # Calculate abs differences
+        epoch_male += np.sum(abs_miss * weight)  # Accumulate weighted absmiss
+
         # Linear metrics
-        forecast = np.expm1(forecast)
-        target = np.expm1(target)
-        abs_miss = np.abs(forecast - target)
-        total_abs_miss_dev += abs_miss.sum()
-        total_target_dev += target.sum()
+        # forecast = np.expm1(forecast)
+        # target = np.expm1(target)
+        # abs_miss = np.abs(forecast - target)
+
     metrics = {
-        "loss": loss_dev / (c + 1),
-        "male": male_dev / (c + 1),
-        "log_mape": total_log_abs_miss_dev / total_log_target_dev,
-        "mape": total_abs_miss_dev / total_target_dev,
+        "loss": np.sqrt(epoch_loss / total_weight),  # Divide by the denominator
+        "male": epoch_male / total_weight,
     }
     return metrics
