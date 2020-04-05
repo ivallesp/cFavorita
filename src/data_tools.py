@@ -717,8 +717,9 @@ def _collate_fn(batch):
 def get_dev_data_loader(
     df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
 ):
+    lag = forecast_horizon * 4
     cfd = cFDataset(
-        df_time=df_time[:, :-forecast_horizon],
+        df_time=df_time[:, :-lag],
         df_static=df_static,
         shuffle_present=False,
         forecast_horizon=forecast_horizon,
@@ -735,8 +736,9 @@ def get_dev_data_loader(
 def get_train_data_loader(
     df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
 ):
+    lag = 5 * forecast_horizon
     cfd = cFDataset(
-        df_time=df_time[:, : -2 * forecast_horizon],
+        df_time=df_time[:, :-lag],
         df_static=df_static,
         shuffle_present=True,
         forecast_horizon=forecast_horizon,
