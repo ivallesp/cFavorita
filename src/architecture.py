@@ -1,10 +1,12 @@
 import logging
 import os
 import shutil
+import math
 
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from src.common_paths import get_model_path
 from src.constants import embedding_sizes
@@ -232,3 +234,219 @@ class Decoder(nn.Module):
         h = self.time_distributed(h)
         output = h.reshape(self.n_forecast_timesteps, batch_size, 1).squeeze()
         return output
+
+
+class EncoderTransformer(nn.Module):
+    def __init__(self, d_model, dropout, N=6):
+
+        super().__init__()
+        layers = []
+        for _ in range(N):
+            layer = EncoderBlock(
+                n_heads_attention=8,
+                d_in_attention=d_model,
+                d_out_attention=d_model,
+                dropout=dropout,
+            )
+            layers.append(layer)
+        layers = nn.ModuleList(layers)
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        # TODO: Add positional embedding
+        # TODO Adapt the size of x
+        return self.layers(x)
+
+
+class DecoderTransformer(nn.Module):
+    def __init__(self, d_model, dropout, N=6):
+
+        super().__init__()
+        layers = []
+        for _ in range(N):
+            layer = DecoderBlock(
+                n_heads_attention=8,
+                d_in_attention=d_model,
+                d_out_attention=d_model,
+                dropout=dropout,
+            )
+            layers.append(layer)
+        self.layers = nn.ModuleList(layers)
+
+    def forward(self, y, h):
+        # TODO: Add positional embedding
+        # TODO Adapt the size of x
+        for layer in self.layers:
+            y = layer(y, h)
+        return y
+        # TODO: Add linear projection at the end
+
+
+class EncoderBlock(nn.Module):
+    def __init__(self, n_heads_attention, d_in_attention, d_out_attention, dropout):
+        super().__init__()
+        self.attention = MultiHeadAttention(
+            n_heads=n_heads_attention,
+            d_in=d_in_attention,
+            d_out=d_out_attention,
+            mask_out_future=False,
+            dropout=dropout,
+        )
+        self.ff = FeedForwardTransformerLayer(
+            expansion_factor=4, input_size=d_in_attention, dropout=dropout
+        )
+
+    def forward(self, x):
+        # Multi-Head Attention layer
+        h = self.attention(query=x, key=x, value=x)  # self-attention
+        # FF layer
+        h = self.ff(h)
+        return h
+
+
+class DecoderBlock(nn.Module):
+    def __init__(self, n_heads_attention, d_in_attention, d_out_attention, dropout):
+        super().__init__()
+        self.attention_dec = MultiHeadAttention(
+            n_heads=n_heads_attention,
+            d_in=d_in_attention,
+            d_out=d_out_attention,
+            mask_out_future=True,  # Make attention causal
+            # TODO: Try if it improves by only masking the first layer, and unmasking the subsequent ones
+            dropout=dropout,
+        )
+        self.attention_enc_dec = MultiHeadAttention(
+            n_heads=n_heads_attention,
+            d_in=d_in_attention,
+            d_out=d_out_attention,
+            mask_out_future=False,
+            dropout=dropout,
+        )
+        self.ff = FeedForwardTransformerLayer(
+            expansion_factor=4, input_size=d_in_attention, dropout=dropout
+        )
+
+    def forward(self, y, h):
+        """[summary]
+
+        Args:
+            y ([type]): decoder previous outputs
+            h ([type]): encoder hidden state
+
+        Returns:
+            [type]: [description]
+        """
+        # Decoder multi-head Attention layer
+        h = self.attention_dec(
+            query=y, key=y, value=y
+        )  # self-attention. TODO: Apply mask
+        # Encoder-decoder multi-head Attention layer
+        h = self.attention_enc_dec(
+            query=h, key=h, value=h
+        )  # self-attention. TODO: Apply mask
+        # FF layer
+        h = self.ff(h)
+        return h
+
+
+class FeedForwardTransformerLayer(nn.Module):
+    def __init__(self, expansion_factor, input_size, dropout):
+        super().__init__()
+        self.l1 = nn.Linear(input_size, input_size * expansion_factor)  # Expansion
+        self.l2 = nn.Linear(input_size * expansion_factor, input_size)  # Contraction
+        nn.init.xavier_normal_(self.l1.weight)
+        nn.init.xavier_normal_(self.l2.weight)
+        self.layer_norm = nn.LayerNorm(input_size)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        residual = x
+        h = F.relu(self.l1(x))
+        h = self.l2(h)
+        h = self.dropout(h)
+        h = self.layer_norm(h + residual)
+        return h
+
+
+class ScaledDotProductAttention(nn.Module):
+    def __init__(self, mask_out_future, dropout=0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.mask_out_future = mask_out_future
+
+    def forward(self, query, key, value):
+        # QK dot product calculation
+        sim = torch.einsum("ijk,ljk->jil", query, key)  # Batch, tsQ, tsK
+        # Equivalent of query.transpose(0, 1).matmul(key.transpose(0, 1).transpose(1,2))
+        # Scaling
+        sim = sim / math.sqrt(key.shape[-1])
+
+        # Mask to make it causal (only look at current and previous elements)
+        if self.mask_out_future:
+            mask = torch.triu(torch.ones_like(sim) * (-np.Inf), diagonal=1)
+            sim = sim + mask
+
+        # Softmax
+        a = F.softmax(sim, dim=-1)
+
+        a = self.dropout(a)  # Original place. TODO: try moving it downwards
+
+        # Weighted average
+        context = torch.einsum("ijk,kil->jil", a, value)
+        # Equivalent of a.matmul(value.transpose(0,1)).transpose(0,1)
+
+        return context
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, n_heads, d_in, d_out, mask_out_future, dropout=0.1):
+        super().__init__()
+        self.n_heads = n_heads
+        self.Wq = nn.Linear(d_in, d_out * n_heads)
+        self.Wk = nn.Linear(d_in, d_out * n_heads)
+        self.Wv = nn.Linear(d_in, d_out * n_heads)
+        nn.init.xavier_normal_(self.Wq.weight)
+        nn.init.xavier_normal_(self.Wk.weight)
+        nn.init.xavier_normal_(self.Wv.weight)
+
+        self.attention = ScaledDotProductAttention(
+            mask_out_future=mask_out_future, dropout=dropout
+        )
+        self.layer_norm = nn.LayerNorm(d_out)
+        self.linear = nn.Linear(d_out * n_heads, d_in)
+        nn.init.xavier_normal_(self.linear.weight)
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, query, key, value):
+        residual = query
+        n_ts_q, batch_sz, n_feats_q = query.shape
+        n_ts_k, batch_sz, n_feats_k = key.shape
+        n_ts_v, batch_sz, n_feats_v = value.shape
+        n_heads = self.n_heads
+
+        # Linear transformations; expand to n_heads
+        # (TS, BS, F) -> (TS, BS, H*F)
+        query = self.Wq(query)
+        key = self.Wk(key)
+        value = self.Wv(value)
+
+        # Shapes adjustment
+        # (TS, BS, H*F) -> (TS, BS*H, F)
+        query = query.view(n_ts_q, batch_sz * n_heads, n_feats_q)
+        key = key.view(n_ts_k, batch_sz * n_heads, n_feats_k)
+        value = value.view(n_ts_v, batch_sz * n_heads, n_feats_v)
+
+        # Scaled dot product
+        c = self.attention(query, key, value)
+
+        # Shapes adjustment
+        c = c.reshape(n_ts_q, batch_sz, -1)
+        c = self.linear(c)
+
+        # Dropout
+        c = self.dropout(c)
+
+        # Residual + LN
+        c = self.layer_norm(c + residual)
+        return c
