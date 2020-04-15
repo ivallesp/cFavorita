@@ -88,7 +88,7 @@ class Transformer(nn.Module):
         emb_feats = []
         for i, cat_feat_name in enumerate(self.cat_time_feats):
             emb_feats += [self.embs_time[cat_feat_name](x_cat_time[:, :, i].long())]
-        time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
+        time_features = torch.cat([x_num_time] + emb_feats, -1)
         output_encoder = self.encoder(time_features)
 
         # Decoder
@@ -102,22 +102,46 @@ class Transformer(nn.Module):
 
         # Right shift y to use always info from the prev. time step
         y = torch.cat([torch.zeros_like(y[[0]]), y[:-1]], 0)
-        y = y[:,:,None]
+        y = y[:, :, None]
 
         # Concatenate the features of the embedding and the output
         y = torch.cat([y, emb_feats[None, :].repeat(y.shape[0], 1, 1)], -1)
         output_decoder = self.decoder(y=y, h=output_encoder)
         assert output_decoder.shape[-1] == 1
-        return output_decoder[:,:,0]
+        return output_decoder[:, :, 0]
 
-    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight, y):
-        y_hat = self.forward(
-            x_num_time=x_num_time,
-            x_cat_time=x_cat_time,
-            x_cat_static=x_cat_static,
-            y=y
-            # x_fwd=x_fwd,
-        )
+    def loss(
+        self,
+        x_num_time,
+        x_cat_time,
+        x_cat_static,
+        target,
+        weight,
+        y,
+        autoregressive=False,
+    ):
+        if autoregressive:
+            y_hat = [torch.zeros_like(y[0:0])]
+            forecasting_horizon = y.shape[0]
+            for i in range(forecasting_horizon):
+                y_hat.append(
+                    self.forward(
+                        x_num_time=x_num_time,
+                        x_cat_time=x_cat_time,
+                        x_cat_static=x_cat_static,
+                        y=torch.cat(y_hat, 0),
+                    )
+                )
+            y_hat = torch.cat(y_hat, 0)
+
+        else:
+            y_hat = self.forward(
+                x_num_time=x_num_time,
+                x_cat_time=x_cat_time,
+                x_cat_static=x_cat_static,
+                y=y
+                # x_fwd=x_fwd,
+            )
         loss = torch_wrmse(target, y_hat, weight)
         return loss, y_hat
 

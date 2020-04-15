@@ -63,12 +63,6 @@ def run_training_epoch(model, batcher, cuda):
 
 
 def _run_epoch(model, batcher, task="validate", cuda=False):
-    if task == "validate":
-        f = model.loss
-    elif task == "train":
-        f = model.step
-    else:
-        ValueError(f"Task specified not defined: {task}")
     epoch_loss = 0
     epoch_male = 0
     total_weight = 0
@@ -80,15 +74,29 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
             # fwb = fwb.cuda()
             target = target.cuda()
             weight = weight.cuda()
-        loss, forecast = f(
-            x_num_time=ntb,
-            x_cat_time=ctb,
-            x_cat_static=csb,
-            # x_fwd=fwb,
-            target=target,
-            weight=weight,
-            y=target,
-        )
+        if task == "validate":
+            loss, forecast = model.loss(
+                x_num_time=ntb,
+                x_cat_time=ctb,
+                x_cat_static=csb,
+                # x_fwd=fwb,
+                target=target,
+                weight=weight,
+                y=target,
+                autoregressive=True,
+            )
+        elif task == "train":
+            loss, forecast = model.step(
+                x_num_time=ntb,
+                x_cat_time=ctb,
+                x_cat_static=csb,
+                # x_fwd=fwb,
+                target=target,
+                weight=weight,
+                y=target,
+            )
+        else:
+            ValueError(f"Task specified not defined: {task}")
 
         loss = loss.data.cpu().numpy()
         forecast = forecast.data.cpu().numpy()
