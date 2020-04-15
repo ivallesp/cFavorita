@@ -8,7 +8,7 @@ from src.constants import categorical_feats, numeric_feats
 logger = logging.getLogger(__name__)
 
 
-def build_architecture(df_time, df_static, forecast_horizon, lr, cuda, alias):
+def build_architecture(df_time, df_static, forecast_horizon, lr, dropout, cuda, alias):
     # Calculate cardinalities
     cat_cardinalities_static = OrderedDict(
         [
@@ -42,6 +42,7 @@ def build_architecture(df_time, df_static, forecast_horizon, lr, cuda, alias):
         cardinalities_static=cat_cardinalities_static,
         n_forecast_timesteps=forecast_horizon,
         lr=lr,
+        dropout=dropout,
         cuda=cuda,
         name=alias,
     )
@@ -86,6 +87,7 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
             # x_fwd=fwb,
             target=target,
             weight=weight,
+            y=target,
         )
 
         loss = loss.data.cpu().numpy()
