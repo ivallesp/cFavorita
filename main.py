@@ -35,6 +35,7 @@ if __name__ == "__main__":
     batch_size = config["batch_size"]
     forecast_horizon = config["forecast_horizon"]
     learning_rate = config["learning_rate"]
+    dropout = config["dropout"]
     n_threads = config["n_threads"]
     log_config(config)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
@@ -65,17 +66,18 @@ if __name__ == "__main__":
     )
 
     # Build model
-    s2s = build_architecture(
+    model = build_architecture(
         df_time=df_master,
         df_static=df_master_static,
         forecast_horizon=forecast_horizon,
         lr=learning_rate,
+        dropout=dropout,
         cuda=cuda,
         alias=alias,
     )
-    epoch, global_step, best_loss = s2s.load_checkpoint(best=False)
+    epoch, global_step, best_loss = model.load_checkpoint(best=False)
 
-    wandb.watch(s2s)
+    wandb.watch(model)
 
     # Define summary writer
     summaries_path = os.path.join(get_tensorboard_path(), alias)
@@ -87,19 +89,19 @@ if __name__ == "__main__":
         # ! Validation phase
         logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
-        metrics_dev = run_validation_epoch(model=s2s, batcher=batcher_dev, cuda=cuda)
+        metrics_dev = run_validation_epoch(model=model, batcher=batcher_dev, cuda=cuda)
 
         # ! Model serialization
         if metrics_dev["loss"] < best_loss:
             is_best = True
             best_loss = metrics_dev["loss"]
-        s2s.save_checkpoint(
+        model.save_checkpoint(
             epoch=epoch, best_loss=best_loss, is_best=is_best, global_step=global_step
         )
 
         # ! Training phase
         logger.info(f"EPOCH: {epoch:06d} | Training phase started...")
-        metrics_train = run_training_epoch(model=s2s, batcher=batcher_train, cuda=cuda)
+        metrics_train = run_training_epoch(model=model, batcher=batcher_train, cuda=cuda)
 
         # ! Report
         for m in metrics_dev:

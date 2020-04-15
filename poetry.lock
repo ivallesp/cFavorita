@@ -138,6 +138,14 @@ version = "0.4.0"
 six = ">=1.4.0"
 
 [[package]]
+category = "main"
+description = "A new flavour of deep learning operations"
+name = "einops"
+optional = false
+python-versions = "*"
+version = "0.2.0"
+
+[[package]]
 category = "dev"
 description = "Discover and load entry points from installed packages."
 name = "entrypoints"
@@ -834,7 +842,7 @@ python-versions = "*"
 version = "0.1.7"
 
 [metadata]
-content-hash = "6143105b859c860502db000b5af7193c62183b8a8409ecfe226bdd04e687ebf8"
+content-hash = "cbd4a3b1141372580101145c86c5573e3640932720d8fdb9c125a55673b51bf5"
 python-versions = "=3.6.9"
 
 [metadata.files]
@@ -893,6 +901,10 @@ decorator = [
 docker-pycreds = [
     {file = "docker-pycreds-0.4.0.tar.gz", hash = "sha256:6ce3270bcaf404cc4c3e27e4b6c70d3521deae82fb508767870fdbf772d584d4"},
     {file = "docker_pycreds-0.4.0-py2.py3-none-any.whl", hash = "sha256:7266112468627868005106ec19cd0d722702d2b7d5912a28e19b826c3d37af49"},
+]
+einops = [
+    {file = "einops-0.2.0-py2.py3-none-any.whl", hash = "sha256:96b1bac57ddb591cccb927d24934d7601c3cdf3343a79a43d316a118d66e1043"},
+    {file = "einops-0.2.0.tar.gz", hash = "sha256:165ee28bcb60e5c2cbb801b5c78e181548ff8daa7c8fcabae5b251e55f7fe614"},
 ]
 entrypoints = [
     {file = "entrypoints-0.3-py2.py3-none-any.whl", hash = "sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19"},
