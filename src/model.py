@@ -36,7 +36,7 @@ def build_architecture(df_time, df_static, forecast_horizon, lr, cuda, alias):
 
     # Model delfinition
     logger.info("Building the architecture...")
-    s2s = Seq2Seq(
+    s2s = Transformer(
         n_num_time_feats=len(num_time_feats),
         cardinalities_time=cat_cardinalities_time,
         cardinalities_static=cat_cardinalities_static,

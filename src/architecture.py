@@ -14,7 +14,7 @@ from src.constants import embedding_sizes
 logger = logging.getLogger(__name__)
 
 
-class Seq2Seq(nn.Module):
+class Transformer(nn.Module):
     def __init__(
         self,
         n_num_time_feats,
@@ -24,39 +24,87 @@ class Seq2Seq(nn.Module):
         lr,
         cuda,
         name,
+        dropout,
     ):
         super().__init__()
         self.name = name
         self.cat_time_feats = np.array(list(cardinalities_time.keys()))
         self.cat_static_feats = np.array(list(cardinalities_static.keys()))
-        self.encoder = Encoder(
-            n_num_time_feats=n_num_time_feats,
-            categorical_cardinalities=cardinalities_time,
-            cuda=cuda,
+
+        ######
+        self.embs_time = nn.ModuleDict()
+        for cat in cardinalities_time:
+            self.embs_time[cat] = nn.Embedding(
+                num_embeddings=cardinalities_time[cat],
+                embedding_dim=embedding_sizes[cat],
+                scale_grad_by_freq=False,
+            )
+
+        embs_sz = np.sum([embedding_sizes[c] for c in cardinalities_time.keys()])
+        input_sz = int(embs_sz + n_num_time_feats)
+        pos_emb_size = 20
+        d_model = input_sz + pos_emb_size
+        self.encoder = EncoderTransformer(
+            d_model=d_model,
+            pos_emb_size=pos_emb_size,
+            n_input_feats=input_sz,
+            dropout=dropout,
+            N=6,
         )
-        self.decoder = Decoder(
-            n_forecast_timesteps=n_forecast_timesteps,
-            categorical_cardinalities=cardinalities_static,
-            cuda=cuda,
+        ######
+
+        ######
+        self.embs_cat = nn.ModuleDict()
+
+        for cat in cardinalities_static:
+            self.embs_cat[cat] = nn.Embedding(
+                num_embeddings=cardinalities_static[cat],
+                embedding_dim=embedding_sizes[cat],
+                scale_grad_by_freq=False,
+            )
+
+        embs_sz = np.sum([embedding_sizes[c] for c in cardinalities_static.keys()])
+        input_sz = int(embs_sz + 1)
+        self.decoder = DecoderTransformer(
+            d_model=d_model,
+            pos_emb_size=pos_emb_size,
+            n_input_feats=input_sz,
+            n_output_feats=1,
+            dropout=dropout,
+            N=6,
         )
+        ######
+
         self.initialize_weights()
         self.optimizer = torch.optim.Adam(params=self.parameters(), lr=lr)
         if cuda:
             self.cuda()
 
-    def forward(self, x_num_time, x_cat_time, x_cat_static):
-        contextual_thought = self.encoder.forward(
-            x_num_time=x_num_time,
-            x_cat_time=x_cat_time,
-            cat_time_names=self.cat_time_feats,
-        )
-        output = self.decoder.forward(
-            x_cat_static=x_cat_static,
-            # x_fwd=x_fwd,
-            cat_static_names=self.cat_static_feats,
-            state=contextual_thought,
-        )
-        return output
+    def forward(self, x_num_time, x_cat_time, x_cat_static, y):
+        # Encoder
+        emb_feats = []
+        for i, cat_feat_name in enumerate(self.cat_time_feats):
+            emb_feats += [self.embs_time[cat_feat_name](x_cat_time[:, :, i].long())]
+        time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
+        output_encoder = self.encoder(time_features)
+
+        # Decoder
+        batch_size = x_cat_static.shape[0]
+        assert x_cat_static.shape[-1] == len(self.cat_time_feats)
+
+        emb_feats = []
+        for i, cat_feat_name in enumerate(self.cat_time_feats):
+            emb_feats += [self.embs_cat[cat_feat_name](x_cat_static[:, i].long())]
+        emb_feats = torch.cat(emb_feats, -1).squeeze()
+
+        # Right shift y to use always info from the prev. time step
+        y = torch.cat(torch.zeros_like(y[[0]], y[:-1])
+
+        # Concatenate the features of the embedding and the output
+        y = torch.cat(y, emb_feats[None, :].repeat(y.shape[0], 1, 1))
+        output_decoder = self.decoder(y=y, h=output_encoder)
+
+        return output_decoder
 
     def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         y_hat = self.forward(
@@ -364,13 +412,9 @@ class DecoderBlock(nn.Module):
             [type]: [description]
         """
         # Decoder multi-head Attention layer
-        h = self.attention_dec(
-            query=y, key=y, value=y
-        )  # self-attention.
+        h = self.attention_dec(query=y, key=y, value=y)  # self-attention.
         # Encoder-decoder multi-head Attention layer
-        h = self.attention_enc_dec(
-            query=h, key=h, value=h
-        )  # self-attention.
+        h = self.attention_enc_dec(query=h, key=h, value=h)  # self-attention.
         # FF layer
         h = self.ff(h)
         return h
