@@ -237,9 +237,12 @@ class Decoder(nn.Module):
 
 
 class EncoderTransformer(nn.Module):
-    def __init__(self, d_model, dropout, N=6):
+    def __init__(self, d_model, pos_emb_size, n_input_feats, dropout, N=6):
 
         super().__init__()
+        self.pos_emb_size = pos_emb_size
+        # Make sure d_model >> pos_emb_size
+        self.input_ff = nn.Linear(n_input_feats, d_model - pos_emb_size)
         layers = []
         for _ in range(N):
             layer = EncoderBlock(
@@ -253,15 +256,29 @@ class EncoderTransformer(nn.Module):
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        # TODO: Add positional embedding
-        # TODO Adapt the size of x
+        # Generate positional embedding
+        pos_emb = generate_positional_embedding(
+            length=x.shape[0],  # Number of time steps
+            channels=self.pos_emb_size,  # Number of features
+        )
+        pos_emb = pos_emb.repeat(1, x.shape[1], 1)  # Broadcast in batch dimension
+        # Project input space to adjust to d_model size
+        x = self.input_ff(x)
+        # Concat pos embedding to input (in the original paper, this is a sum)
+        x = torch.cat([x, pos_emb], axis=-1)
+
         return self.layers(x)
 
 
 class DecoderTransformer(nn.Module):
-    def __init__(self, d_model, dropout, N=6):
+    def __init__(
+        self, d_model, pos_emb_size, n_input_feats, n_output_feats, dropout, N=6
+    ):
 
         super().__init__()
+        self.pos_emb_size = pos_emb_size
+        # Make sure d_model >> pos_emb_size
+        self.input_ff = nn.Linear(n_input_feats, d_model - pos_emb_size)
         layers = []
         for _ in range(N):
             layer = DecoderBlock(
@@ -271,15 +288,25 @@ class DecoderTransformer(nn.Module):
                 dropout=dropout,
             )
             layers.append(layer)
+        self.output_ff = nn.Linear(d_model, n_output_feats)
+
         self.layers = nn.ModuleList(layers)
 
     def forward(self, y, h):
-        # TODO: Add positional embedding
-        # TODO Adapt the size of x
+        # Generate positional embedding
+        pos_emb = generate_positional_embedding(
+            length=y.shape[0],  # Number of time steps
+            channels=self.pos_emb_size,  # Number of features
+        )
+        pos_emb = pos_emb.repeat(1, h.shape[1], 1)  # Broadcast in batch dimension
+        # Project input space to adjust to d_model size
+        y = self.input_ff(y)
+        # Concat pos embedding to input (in the original paper, this is a sum)
+        y = torch.cat([y, pos_emb], axis=-1)
         for layer in self.layers:
             y = layer(y, h)
+        y = self.output_ff(y)
         return y
-        # TODO: Add linear projection at the end
 
 
 class EncoderBlock(nn.Module):
@@ -339,11 +366,11 @@ class DecoderBlock(nn.Module):
         # Decoder multi-head Attention layer
         h = self.attention_dec(
             query=y, key=y, value=y
-        )  # self-attention. TODO: Apply mask
+        )  # self-attention.
         # Encoder-decoder multi-head Attention layer
         h = self.attention_enc_dec(
             query=h, key=h, value=h
-        )  # self-attention. TODO: Apply mask
+        )  # self-attention.
         # FF layer
         h = self.ff(h)
         return h
@@ -450,3 +477,17 @@ class MultiHeadAttention(nn.Module):
         # Residual + LN
         c = self.layer_norm(c + residual)
         return c
+
+
+def generate_positional_embedding(length, channels):
+    # Adapted from https://github.com/tensorflow/tensor2tensor
+    max_timescale = 10e4
+    position = torch.arange(length)
+    num_timescales = channels // 2
+    log_timescale_increment = math.log(float(max_timescale)) / (num_timescales - 1)
+    inv_timescales = torch.exp(torch.arange(num_timescales) * -log_timescale_increment)
+    scaled_time = position[:, None] * inv_timescales[None]
+    signal = torch.cat([np.sin(scaled_time), np.cos(scaled_time)], axis=1)
+    signal = torch.reshape(signal, [1, length, channels])
+    signal = signal.transpose(0, 1)  # Pytorch format, time at the beginning
+    return signal
