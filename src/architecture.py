@@ -93,21 +93,22 @@ class Transformer(nn.Module):
 
         # Decoder
         batch_size = x_cat_static.shape[0]
-        assert x_cat_static.shape[-1] == len(self.cat_time_feats)
+        assert x_cat_static.shape[-1] == len(self.cat_static_feats)
 
         emb_feats = []
-        for i, cat_feat_name in enumerate(self.cat_time_feats):
+        for i, cat_feat_name in enumerate(self.cat_static_feats):
             emb_feats += [self.embs_cat[cat_feat_name](x_cat_static[:, i].long())]
         emb_feats = torch.cat(emb_feats, -1).squeeze()
 
         # Right shift y to use always info from the prev. time step
-        y = torch.cat(torch.zeros_like(y[[0]], y[:-1]))
+        y = torch.cat([torch.zeros_like(y[[0]]), y[:-1]], 0)
+        y = y[:,:,None]
 
         # Concatenate the features of the embedding and the output
-        y = torch.cat(y, emb_feats[None, :].repeat(y.shape[0], 1, 1))
+        y = torch.cat([y, emb_feats[None, :].repeat(y.shape[0], 1, 1)], -1)
         output_decoder = self.decoder(y=y, h=output_encoder)
-
-        return output_decoder
+        assert output_decoder.shape[-1] == 1
+        return output_decoder[:,:,0]
 
     def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight, y):
         y_hat = self.forward(
