@@ -431,7 +431,7 @@ class MasterDataGetter(DataGetter):
 
         if sample:
             logger.info("Sampling dataframe...")
-            df_main = df_main[df_main.date > int("2016-08-01".replace("-", ""))]
+            df_main = df_main[df_main.date > int("2016-06-01".replace("-", ""))]
 
         logger.info("Dataset loaded successfully!")
 
