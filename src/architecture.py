@@ -171,7 +171,10 @@ class Transformer(nn.Module):
     def initialize_weights(self):
         # https://discuss.pytorch.org/t/initializing-parameters-of-a-multi-layer-lstm/5791
         for name, param in self.named_parameters():
-            if "bias" in name:
+            if "layer_norm" in name:
+                logger.warn(f"Parameter {name} initialization skipped!")
+                continue
+            elif "bias" in name:
                 nn.init.constant_(param, 0.0)
             elif "weight" in name:
                 nn.init.kaiming_normal_(param)
