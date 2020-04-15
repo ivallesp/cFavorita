@@ -65,6 +65,8 @@ if __name__ == "__main__":
         n_jobs=n_threads,
     )
 
+
+
     # Build model
     model = build_architecture(
         df_time=df_master,
@@ -89,6 +91,7 @@ if __name__ == "__main__":
         # ! Validation phase
         logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
+        model.eval()
         metrics_dev = run_validation_epoch(model=model, batcher=batcher_dev, cuda=cuda)
 
         # ! Model serialization
@@ -101,6 +104,7 @@ if __name__ == "__main__":
 
         # ! Training phase
         logger.info(f"EPOCH: {epoch:06d} | Training phase started...")
+        model.train()
         metrics_train = run_training_epoch(
             model=model, batcher=batcher_train, cuda=cuda
         )
