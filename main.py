@@ -60,7 +60,7 @@ if __name__ == "__main__":
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
-        batch_size=batch_size,
+        batch_size=batch_size * 4,
         forecast_horizon=forecast_horizon,
         n_jobs=n_threads,
     )
@@ -101,7 +101,9 @@ if __name__ == "__main__":
 
         # ! Training phase
         logger.info(f"EPOCH: {epoch:06d} | Training phase started...")
-        metrics_train = run_training_epoch(model=model, batcher=batcher_train, cuda=cuda)
+        metrics_train = run_training_epoch(
+            model=model, batcher=batcher_train, cuda=cuda
+        )
 
         # ! Report
         for m in metrics_dev:
