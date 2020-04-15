@@ -205,6 +205,7 @@ class Transformer(nn.Module):
         return epoch, global_step, best_loss
 
     def initialize_weights(self):
+        return 0  #! disable initialization
         # https://discuss.pytorch.org/t/initializing-parameters-of-a-multi-layer-lstm/5791
         for name, param in self.named_parameters():
             if "layer_norm" in name:
