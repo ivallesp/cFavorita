@@ -729,7 +729,7 @@ def get_dev_data_loader(
         n_history_ts=n_history_ts,
     )
     base_sampler = SequentialSampler(cfd)
-    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
     dataloader = DataLoader(
         cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
     )
@@ -748,7 +748,7 @@ def get_train_data_loader(
         n_history_ts=n_history_ts,
     )
     base_sampler = RandomSampler(cfd)
-    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
     dataloader = DataLoader(
         cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
     )

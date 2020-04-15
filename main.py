@@ -60,7 +60,7 @@ if __name__ == "__main__":
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
-        batch_size=batch_size * 4,
+        batch_size=batch_size * 16,
         forecast_horizon=forecast_horizon,
         n_jobs=n_threads,
     )
