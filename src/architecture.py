@@ -83,16 +83,16 @@ class Transformer(nn.Module):
         if cuda:
             self.cuda()
 
-    def forward(self, x_num_time, x_cat_time, x_cat_static, y):
+    def forward(self, x_num_time, x_cat_time, x_cat_static, y, output_encoder=None):
         # Encoder
-        emb_feats = []
-        for i, cat_feat_name in enumerate(self.cat_time_feats):
-            emb_feats += [self.embs_time[cat_feat_name](x_cat_time[:, :, i].long())]
-        time_features = torch.cat([x_num_time] + emb_feats, -1)
-        output_encoder = self.encoder(time_features)
+        if output_encoder is None:
+            emb_feats = []
+            for i, cat_feat_name in enumerate(self.cat_time_feats):
+                emb_feats += [self.embs_time[cat_feat_name](x_cat_time[:, :, i].long())]
+            time_features = torch.cat([x_num_time] + emb_feats, -1)
+            output_encoder = self.encoder(time_features)
 
         # Decoder
-        batch_size = x_cat_static.shape[0]
         assert x_cat_static.shape[-1] == len(self.cat_static_feats)
 
         emb_feats = []
@@ -108,7 +108,7 @@ class Transformer(nn.Module):
         y = torch.cat([y, emb_feats[None, :].repeat(y.shape[0], 1, 1)], -1)
         output_decoder = self.decoder(y=y, h=output_encoder)
         assert output_decoder.shape[-1] == 1
-        return output_decoder[:, :, 0]
+        return output_encoder, output_decoder[:, :, 0]
 
     def loss(
         self,
@@ -124,19 +124,22 @@ class Transformer(nn.Module):
 
             y_hat = torch.zeros_like(y[[0]])
             forecasting_horizon = y.shape[0]
+            output_encoder = None  # Cache encoder output for the autoregressive loop
+
             for i in range(forecasting_horizon):
-                print(i)
                 with torch.no_grad():
-                    y_hat_last = self.forward(
+                    output_encoder, y_hat_last = self.forward(
                         x_num_time=x_num_time,
                         x_cat_time=x_cat_time,
                         x_cat_static=x_cat_static,
                         y=y_hat,
+                        output_encoder=output_encoder,
                     ).detach()[-1:]
                     y_hat = torch.cat([y_hat, y_hat_last], axis=0)
+            y_hat = y_hat[1:]
 
         else:
-            y_hat = self.forward(
+            _, y_hat = self.forward(
                 x_num_time=x_num_time,
                 x_cat_time=x_cat_time,
                 x_cat_static=x_cat_static,
