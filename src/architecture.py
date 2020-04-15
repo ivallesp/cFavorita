@@ -121,17 +121,19 @@ class Transformer(nn.Module):
         autoregressive=False,
     ):
         if autoregressive:
+
             y_hat = torch.zeros_like(y[[0]])
             forecasting_horizon = y.shape[0]
             for i in range(forecasting_horizon):
                 print(i)
                 with torch.no_grad():
-                    y_hat = self.forward(
+                    y_hat_last = self.forward(
                         x_num_time=x_num_time,
                         x_cat_time=x_cat_time,
                         x_cat_static=x_cat_static,
                         y=y_hat,
-                    ).detach()
+                    ).detach()[-1:]
+                    y_hat = torch.cat([y_hat, y_hat_last], axis=0)
 
         else:
             y_hat = self.forward(
