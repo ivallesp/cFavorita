@@ -134,7 +134,9 @@ class Transformer(nn.Module):
                         x_cat_static=x_cat_static,
                         y=y_hat,
                         output_encoder=output_encoder,
-                    ).detach()[-1:]
+                    )
+                    output_encoder = output_encoder.detach()
+                    y_hat_last = y_hat_last.detach()[-1:]
                     y_hat = torch.cat([y_hat, y_hat_last], axis=0)
             y_hat = y_hat[1:]
 
