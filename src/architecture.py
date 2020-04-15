@@ -121,7 +121,7 @@ class Transformer(nn.Module):
         autoregressive=False,
     ):
         if autoregressive:
-            y_hat = [torch.zeros_like(y[0:0])]
+            y_hat = [torch.zeros_like(y[[0]])]
             forecasting_horizon = y.shape[0]
             for i in range(forecasting_horizon):
                 y_hat.append(
