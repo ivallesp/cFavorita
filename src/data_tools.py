@@ -630,7 +630,7 @@ class cFDataset(Dataset):
         df_static,
         shuffle_present,
         forecast_horizon,
-        min_history,
+        n_history_ts,
         target=True,
     ):
         from src.constants import (
@@ -643,7 +643,7 @@ class cFDataset(Dataset):
 
         self.df_time = df_time
         self.df_static = df_static
-        self.min_history = min_history
+        self.n_history_ts = n_history_ts
         self.forecast_horizon = forecast_horizon
         self.shuffle_present = shuffle_present
         self.time_steps = df_time.shape[1]
@@ -665,21 +665,24 @@ class cFDataset(Dataset):
         ts = self.time_steps
         fh = self.forecast_horizon
         if self.shuffle_present:
-            last_time_step = self.time_steps - self.forecast_horizon
-            present = random.randint(self.min_history, last_time_step)
+            max_present = self.time_steps - self.forecast_horizon
+            min_present = self.n_history_ts
+            present = random.randint(min_present, max_present)
         else:
             present = ts - fh
+
+        past = present - self.n_history_ts
 
         batch_time = self.df_time[idx]
         batch_static = self.df_static[idx]
 
         # Numerical time-dependent features batch
-        ntb = batch_time[np.array(self.num_time_feats)][:, :present]
+        ntb = batch_time[np.array(self.num_time_feats)][:, past:present]
         ntb = recarray_to_array(ntb, np.float32).swapaxes(0, 1)
         ntb = torch.from_numpy(ntb)
 
         # Categorical time-dependent features batch
-        ctb = batch_time[np.array(self.cat_time_feats)][:, :present]
+        ctb = batch_time[np.array(self.cat_time_feats)][:, past:present]
         ctb = recarray_to_array(ctb, np.int32).swapaxes(0, 1)
         ctb = torch.from_numpy(ctb).long()
 
@@ -715,7 +718,7 @@ def _collate_fn(batch):
 
 
 def get_dev_data_loader(
-    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
+    df_time, df_static, batch_size=128, forecast_horizon=15, n_history_ts=60, n_jobs=4
 ):
     lag = forecast_horizon * 4
     cfd = cFDataset(
@@ -723,7 +726,7 @@ def get_dev_data_loader(
         df_static=df_static,
         shuffle_present=False,
         forecast_horizon=forecast_horizon,
-        min_history=min_history,
+        n_history_ts=n_history_ts,
     )
     base_sampler = SequentialSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
@@ -734,7 +737,7 @@ def get_dev_data_loader(
 
 
 def get_train_data_loader(
-    df_time, df_static, batch_size=128, forecast_horizon=15, min_history=300, n_jobs=4
+    df_time, df_static, batch_size=128, forecast_horizon=15, n_history_ts=60, n_jobs=4
 ):
     lag = 5 * forecast_horizon
     cfd = cFDataset(
@@ -742,7 +745,7 @@ def get_train_data_loader(
         df_static=df_static,
         shuffle_present=True,
         forecast_horizon=forecast_horizon,
-        min_history=min_history,
+        n_history_ts=n_history_ts,
     )
     base_sampler = RandomSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=True)
@@ -758,7 +761,7 @@ def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
         df_static=df_static,
         shuffle_present=False,
         forecast_horizon=16,
-        min_history=None,
+        n_history_ts=None,
     )
     base_sampler = SequentialSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
