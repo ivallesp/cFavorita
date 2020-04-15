@@ -27,6 +27,7 @@ class Transformer(nn.Module):
         dropout,
     ):
         super().__init__()
+        self.cuda_ = cuda
         self.name = name
         self.cat_time_feats = np.array(list(cardinalities_time.keys()))
         self.cat_static_feats = np.array(list(cardinalities_static.keys()))
@@ -50,6 +51,7 @@ class Transformer(nn.Module):
             n_input_feats=input_sz,
             dropout=dropout,
             N=6,
+            cuda=cuda,
         )
         ######
 
@@ -72,6 +74,7 @@ class Transformer(nn.Module):
             n_output_feats=1,
             dropout=dropout,
             N=6,
+            cuda=cuda,
         )
         ######
 
@@ -106,23 +109,25 @@ class Transformer(nn.Module):
 
         return output_decoder
 
-    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight):
+    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight, y):
         y_hat = self.forward(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
+            y=y
             # x_fwd=x_fwd,
         )
         loss = torch_wrmse(target, y_hat, weight)
         return loss, y_hat
 
-    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight):
+    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight, y):
         loss, y_hat = self.loss(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
             target=target,
             weight=weight,
+            y=y,
         )
         self.optimizer.zero_grad()
         loss.backward()
@@ -288,9 +293,10 @@ class Decoder(nn.Module):
 
 
 class EncoderTransformer(nn.Module):
-    def __init__(self, d_model, pos_emb_size, n_input_feats, dropout, N=6):
+    def __init__(self, d_model, pos_emb_size, n_input_feats, dropout, N=6, cuda=False):
 
         super().__init__()
+        self.cuda_ = cuda
         self.pos_emb_size = pos_emb_size
         # Make sure d_model >> pos_emb_size
         self.input_ff = nn.Linear(n_input_feats, d_model - pos_emb_size)
@@ -312,6 +318,8 @@ class EncoderTransformer(nn.Module):
             length=x.shape[0],  # Number of time steps
             channels=self.pos_emb_size,  # Number of features
         )
+        if self.cuda_:
+            pos_emb = pos_emb.cuda()
         pos_emb = pos_emb.repeat(1, x.shape[1], 1)  # Broadcast in batch dimension
         # Project input space to adjust to d_model size
         x = self.input_ff(x)
@@ -323,10 +331,18 @@ class EncoderTransformer(nn.Module):
 
 class DecoderTransformer(nn.Module):
     def __init__(
-        self, d_model, pos_emb_size, n_input_feats, n_output_feats, dropout, N=6
+        self,
+        d_model,
+        pos_emb_size,
+        n_input_feats,
+        n_output_feats,
+        dropout,
+        N=6,
+        cuda=False,
     ):
 
         super().__init__()
+        self.cuda_ = cuda
         self.pos_emb_size = pos_emb_size
         # Make sure d_model >> pos_emb_size
         self.input_ff = nn.Linear(n_input_feats, d_model - pos_emb_size)
@@ -349,6 +365,8 @@ class DecoderTransformer(nn.Module):
             length=y.shape[0],  # Number of time steps
             channels=self.pos_emb_size,  # Number of features
         )
+        if self.cuda_:
+            pos_emb = pos_emb.cuda()
         pos_emb = pos_emb.repeat(1, h.shape[1], 1)  # Broadcast in batch dimension
         # Project input space to adjust to d_model size
         y = self.input_ff(y)
