@@ -98,7 +98,7 @@ class Transformer(nn.Module):
         emb_feats = torch.cat(emb_feats, -1).squeeze()
 
         # Right shift y to use always info from the prev. time step
-        y = torch.cat(torch.zeros_like(y[[0]], y[:-1])
+        y = torch.cat(torch.zeros_like(y[[0]], y[:-1]))
 
         # Concatenate the features of the embedding and the output
         y = torch.cat(y, emb_feats[None, :].repeat(y.shape[0], 1, 1))

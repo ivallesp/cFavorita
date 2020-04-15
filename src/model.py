@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 from collections import OrderedDict
-from src.architecture import Seq2Seq
+from src.architecture import Transformer
 from src.constants import categorical_feats, numeric_feats
 
 logger = logging.getLogger(__name__)
