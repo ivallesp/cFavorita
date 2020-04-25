@@ -369,10 +369,12 @@ class DecoderBlock(nn.Module):
         )
 
     def forward(self, y, h):
+        # h <- output encoder
+        # y <- output previous layer
         # Decoder multi-head Attention layer
-        h = self.attention_dec(query=y, key=y, value=y)  # self-attention.
+        y = self.attention_dec(query=y, key=y, value=y)  # self-attention.
         # Encoder-decoder multi-head Attention layer
-        h = self.attention_enc_dec(query=h, key=h, value=h)  # self-attention.
+        h = self.attention_enc_dec(query=y, key=h, value=h)  # self-attention.
         # FF layer
         h = self.ff(h)
         return h
