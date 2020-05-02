@@ -74,6 +74,7 @@ class Transformer(nn.Module):
             n_output_feats=1,
             dropout=dropout,
             N=6,
+            n_forecast_timesteps=n_forecast_timesteps,
             cuda=cuda,
         )
         ######
@@ -83,7 +84,7 @@ class Transformer(nn.Module):
         if cuda:
             self.cuda()
 
-    def forward(self, x_num_time, x_cat_time, x_cat_static, y, output_encoder=None):
+    def forward(self, x_num_time, x_cat_time, x_cat_static, output_encoder=None):
         # Encoder
         if output_encoder is None:
             emb_feats = []
@@ -100,65 +101,25 @@ class Transformer(nn.Module):
             emb_feats += [self.embs_cat[cat_feat_name](x_cat_static[:, i].long())]
         emb_feats = torch.cat(emb_feats, -1).squeeze()
 
-        # Right shift y to use always info from the prev. time step
-        y = torch.cat([torch.zeros_like(y[[0]]), y[:-1]], 0)
-        y = y[:, :, None]
-
         # Concatenate the features of the embedding and the output
-        y = torch.cat([y, emb_feats[None, :].repeat(y.shape[0], 1, 1)], -1)
-        output_decoder = self.decoder(y=y, h=output_encoder)
+        output_decoder = self.decoder(h=output_encoder)
         assert output_decoder.shape[-1] == 1
         return output_encoder, output_decoder[:, :, 0]
 
-    def loss(
-        self,
-        x_num_time,
-        x_cat_time,
-        x_cat_static,
-        target,
-        weight,
-        y,
-        autoregressive=False,
-    ):
-        if autoregressive:
-
-            y_hat = torch.zeros_like(y[[0]])
-            forecasting_horizon = y.shape[0]
-            output_encoder = None  # Cache encoder output for the autoregressive loop
-
-            for i in range(forecasting_horizon):
-                with torch.no_grad():
-                    output_encoder, y_hat_last = self.forward(
-                        x_num_time=x_num_time,
-                        x_cat_time=x_cat_time,
-                        x_cat_static=x_cat_static,
-                        y=y_hat,
-                        output_encoder=output_encoder,
-                    )
-                    output_encoder = output_encoder.detach()
-                    y_hat_last = y_hat_last.detach()[-1:]
-                    y_hat = torch.cat([y_hat, y_hat_last], axis=0)
-            y_hat = y_hat[1:]
-
-        else:
-            _, y_hat = self.forward(
-                x_num_time=x_num_time,
-                x_cat_time=x_cat_time,
-                x_cat_static=x_cat_static,
-                y=y
-                # x_fwd=x_fwd,
-            )
+    def loss(self, x_num_time, x_cat_time, x_cat_static, target, weight):
+        _, y_hat = self.forward(
+            x_num_time=x_num_time, x_cat_time=x_cat_time, x_cat_static=x_cat_static
+        )
         loss = torch_wrmse(target, y_hat, weight)
         return loss, y_hat
 
-    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight, y):
+    def step(self, x_num_time, x_cat_time, x_cat_static, target, weight):
         loss, y_hat = self.loss(
             x_num_time=x_num_time,
             x_cat_time=x_cat_time,
             x_cat_static=x_cat_static,
             target=target,
             weight=weight,
-            y=y,
         )
         self.optimizer.zero_grad()
         loss.backward()
@@ -283,15 +244,16 @@ class DecoderTransformer(nn.Module):
         n_input_feats,
         n_output_feats,
         dropout,
+        n_forecast_timesteps,
         N=6,
         cuda=False,
     ):
-
         super().__init__()
         self.cuda_ = cuda
+        self.n_forecast_timesteps = n_forecast_timesteps
         self.pos_emb_size = pos_emb_size
         # Make sure d_model >> pos_emb_size
-        self.input_ff = nn.Linear(n_input_feats, d_model - pos_emb_size)
+        self.input_ff = nn.Linear(pos_emb_size, d_model)
         layers = []
         for _ in range(N):
             layer = DecoderBlock(
@@ -305,19 +267,20 @@ class DecoderTransformer(nn.Module):
 
         self.layers = nn.ModuleList(layers)
 
-    def forward(self, y, h):
+    def forward(self, h):
+        #! TODO: Where are the static features?
         # Generate positional embedding
         pos_emb = generate_positional_embedding(
-            length=y.shape[0],  # Number of time steps
+            length=self.n_forecast_timesteps,  # Number of time steps
             channels=self.pos_emb_size,  # Number of features
         )
         if self.cuda_:
             pos_emb = pos_emb.cuda()
         pos_emb = pos_emb.repeat(1, h.shape[1], 1)  # Broadcast in batch dimension
+
         # Project input space to adjust to d_model size
-        y = self.input_ff(y)
+        y = self.input_ff(pos_emb)
         # Concat pos embedding to input (in the original paper, this is a sum)
-        y = torch.cat([y, pos_emb], axis=-1)
         for layer in self.layers:
             y = layer(y, h)
         y = self.output_ff(y)
