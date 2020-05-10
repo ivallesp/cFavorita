@@ -65,8 +65,6 @@ if __name__ == "__main__":
         n_jobs=n_threads,
     )
 
-
-
     # Build model
     model = build_architecture(
         df_time=df_master,
