@@ -30,16 +30,16 @@ categorical_feats = [
 forward_feats = ["onpromotion"]
 
 embedding_sizes = {
-    "store_nbr": 100,
-    "item_nbr": 300,
-    "store_city": 20,
-    "store_state": 20,
-    "store_type": 20,
-    "store_cluster": 20,
-    "holidays_type": 20,
-    "holidays_locale": 20,
-    "holidays_locale_name": 20,
-    "item_family": 20,
+    "store_nbr": 20,
+    "item_nbr": 30,
+    "store_city": 5,
+    "store_state": 5,
+    "store_type": 5,
+    "store_cluster": 5,
+    "holidays_type": 5,
+    "holidays_locale": 5,
+    "holidays_locale_name": 5,
+    "item_family": 5,
     "item_perishable": 2,  # Dummy embedding
 }
 
