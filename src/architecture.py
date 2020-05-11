@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from src.common_paths import get_model_path
 from src.constants import embedding_sizes
+from src.pytorch_modules import XceptionModule1d
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,9 @@ class Transformer(nn.Module):
         input_sz = int(embs_sz + n_num_time_feats)
         pos_emb_size = 20
         d_model = input_sz + pos_emb_size
+        self.input_sz = input_sz  # Store atribute for trace purposes
+        self.pos_emb_size = pos_emb_size  # Store atribute for trace purposes
+        self.d_model = d_model  # Store atribute for trace purposes
         self.encoder = EncoderTransformer(
             d_model=d_model,
             pos_emb_size=pos_emb_size,
@@ -56,6 +60,19 @@ class Transformer(nn.Module):
         ######
 
         ######
+        conv_layers = [
+            XceptionModule1d(
+                in_channels=self.input_sz,
+                out_channels=self.input_sz,
+                n_modules=2,
+                pooling_stride=2,
+            )
+            for _ in range(3)
+        ]
+        self.conv_block = nn.Sequential(*conv_layers)
+        if cuda:
+            self.conv_block = self.conv_block.cuda()
+
         self.embs_cat = nn.ModuleDict()
 
         for cat in cardinalities_static:
@@ -90,8 +107,10 @@ class Transformer(nn.Module):
             for i, cat_feat_name in enumerate(self.cat_time_feats):
                 emb_feats += [self.embs_time[cat_feat_name](x_cat_time[:, :, i].long())]
             time_features = torch.cat([x_num_time] + emb_feats, -1)
+            # Here! Reduce length using conv: torch.Size([60, 128, 70])
+            time_features = self.conv_block(time_features.permute([1, 2, 0]))
+            time_features = time_features.permute([2, 0, 1])
             output_encoder = self.encoder(time_features)
-
         # Decoder
         assert x_cat_static.shape[-1] == len(self.cat_static_feats)
 
