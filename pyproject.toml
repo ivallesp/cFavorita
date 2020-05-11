@@ -23,12 +23,12 @@ ipython = "^7.8"
 ipykernel = "^5.1"
 
 [custom]
-alias = "transformer_v0.2"
+alias = "transformer_v0.4"
 cuda = true
 sample = false
 random_seed = 655321
 batch_size = 128
 forecast_horizon = 16
-learning_rate = 0.00001
+learning_rate = 0.0001
 dropout = 0.1
 n_threads = 8
