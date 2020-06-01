@@ -20,13 +20,3 @@ black = {version = "^18.3-alpha.0", allows-prereleases = true}
 flake8 = "^3.7"
 ipython = "^7.8"
 ipykernel = "^5.1"
-
-[custom]
-alias = "recurrent_seq2seq_v1.0"
-cuda = true
-sample = false
-random_seed = 655321
-batch_size = 128
-forecast_horizon = 16
-learning_rate = 0.0001
-n_threads = 8

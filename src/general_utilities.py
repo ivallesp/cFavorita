@@ -41,11 +41,13 @@ def get_general_config():
     return config
 
 
-def get_custom_project_config():
+def get_custom_project_config(fn):
     """
     Loads the custom configuration from the pyproject.toml file
     """
-    return toml.load("pyproject.toml")["custom"]
+    fn = fn if fn.endswith("toml") else fn + ".toml"
+    path = os.path.join("config", fn)
+    return toml.load(path)["config"]
 
 
 def log_config(config):
