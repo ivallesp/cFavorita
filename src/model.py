@@ -56,13 +56,27 @@ def run_validation_epoch(model, batcher, cuda):
     return metrics
 
 
-def run_training_epoch(model, batcher, cuda):
+def run_training_epoch(model, batcher, cuda, lr_scheduler=None, warmup_scheduler=None):
     task = "train"
-    metrics = _run_epoch(model=model, batcher=batcher, task=task, cuda=cuda)
+    metrics = _run_epoch(
+        model=model,
+        batcher=batcher,
+        task=task,
+        cuda=cuda,
+        lr_scheduler=lr_scheduler,
+        warmup_scheduler=warmup_scheduler,
+    )
     return metrics
 
 
-def _run_epoch(model, batcher, task="validate", cuda=False):
+def _run_epoch(
+    model,
+    batcher,
+    task="validate",
+    cuda=False,
+    lr_scheduler=None,
+    warmup_scheduler=None,
+):
     epoch_loss = 0
     epoch_male = 0
     total_weight = 0
@@ -95,6 +109,10 @@ def _run_epoch(model, batcher, task="validate", cuda=False):
                 weight=weight,
                 y=target,
             )
+            if lr_scheduler is not None:
+                lr_scheduler.step()
+            if warmup_scheduler is not None:
+                warmup_scheduler.dampen()
         else:
             ValueError(f"Task specified not defined: {task}")
 

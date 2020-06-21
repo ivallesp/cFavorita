@@ -581,6 +581,17 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 category = "main"
+description = "A PyTorch Extension for Learning Rate Warmup"
+name = "pytorch-warmup"
+optional = false
+python-versions = ">=3.6"
+version = "0.0.4"
+
+[package.dependencies]
+torch = ">=1.1"
+
+[[package]]
+category = "main"
 description = "World timezone definitions, modern and historical"
 name = "pytz"
 optional = false
@@ -842,7 +853,7 @@ python-versions = "*"
 version = "0.1.7"
 
 [metadata]
-content-hash = "cbd4a3b1141372580101145c86c5573e3640932720d8fdb9c125a55673b51bf5"
+content-hash = "f18f301684cc34eb7e219629e0eac8932d45c436d634a8c5fd91a1db46d7bbc6"
 python-versions = "=3.6.9"
 
 [metadata.files]
@@ -1184,6 +1195,10 @@ python-dateutil = [
 ]
 python-slugify = [
     {file = "python-slugify-4.0.0.tar.gz", hash = "sha256:a8fc3433821140e8f409a9831d13ae5deccd0b033d4744d94b31fea141bdd84c"},
+]
+pytorch-warmup = [
+    {file = "pytorch-warmup-0.0.4.tar.gz", hash = "sha256:9c630ac77a76f594492ffad8ccd5015aa5c946aee71525f867a86c88aaacd922"},
+    {file = "pytorch_warmup-0.0.4-py3-none-any.whl", hash = "sha256:38110440a51840120732844e1e312227bb787a2e675589c241484b95a6d515bc"},
 ]
 pytz = [
     {file = "pytz-2019.3-py2.py3-none-any.whl", hash = "sha256:1c557d7d0e871de1f5ccd5833f60fb2550652da6be2693c1e02300743d21500d"},

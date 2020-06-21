@@ -4,6 +4,7 @@ import random
 import torch
 import argparse
 
+import pytorch_warmup as warmup
 import numpy as np
 import wandb
 from tensorboardX import SummaryWriter
@@ -33,12 +34,13 @@ parser.add_argument(
     action="store",
     dest="config",
     help="Config filename, to be read from the config directory",
-    default=655321,
+    default=655_321,
 )
 
 args = parser.parse_args()
 
 if __name__ == "__main__":
+    EVAL_EVERY_N = 10
     config = get_custom_project_config(args.config)
     logger.info(f"Loading {config} parameters...")
     random_seed = config["random_seed"]
@@ -51,6 +53,7 @@ if __name__ == "__main__":
     dropout = config["dropout"]
     n_threads = config["n_threads"]
     n_epochs = config["n_epochs"]
+    n_history_ts = config["n_history_ts"]
     log_config(config, alias)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config)
@@ -69,17 +72,17 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
+        n_history_ts=n_history_ts,
         n_jobs=n_threads,
     )
     batcher_dev = get_dev_data_loader(
         df_time=df_master,
         df_static=df_master_static,
-        batch_size=batch_size * 16,
+        batch_size=batch_size * 6,
         forecast_horizon=forecast_horizon,
+        n_history_ts=n_history_ts,
         n_jobs=n_threads,
     )
-
-
 
     # Build model
     model = build_architecture(
@@ -93,6 +96,16 @@ if __name__ == "__main__":
     )
     epoch, global_step, best_loss = model.load_checkpoint(best=False)
 
+    num_steps = len(batcher_train) * n_epochs
+
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        model.optimizer, T_max=num_steps
+    )
+
+    warmup_scheduler = warmup.UntunedLinearWarmup(
+        model.optimizer, last_step=epoch * len(batcher_train) - 1
+    )
+
     wandb.watch(model)
 
     # Define summary writer
@@ -103,24 +116,36 @@ if __name__ == "__main__":
     logger.info(f"Starting the training loop!")
     for epoch in range(epoch, n_epochs):  # Epochs loop
         # ! Validation phase
-        logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
-        is_best = False
-        model.eval()
-        metrics_dev = run_validation_epoch(model=model, batcher=batcher_dev, cuda=cuda)
+        if epoch % EVAL_EVERY_N == 0:
+            logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
+            is_best = False
+            model.eval()
+            metrics_dev = run_validation_epoch(
+                model=model, batcher=batcher_dev, cuda=cuda
+            )
 
-        # ! Model serialization
-        if metrics_dev["loss"] < best_loss:
-            is_best = True
-            best_loss = metrics_dev["loss"]
-        model.save_checkpoint(
-            epoch=epoch, best_loss=best_loss, is_best=is_best, global_step=global_step
-        )
+            # ! Model serialization
+            if metrics_dev["loss"] < best_loss:
+                is_best = True
+                best_loss = metrics_dev["loss"]
+            model.save_checkpoint(
+                epoch=epoch,
+                best_loss=best_loss,
+                is_best=is_best,
+                global_step=global_step,
+            )
+        else:
+            metrics_dev = {}
 
         # ! Training phase
         logger.info(f"EPOCH: {epoch:06d} | Training phase started...")
         model.train()
         metrics_train = run_training_epoch(
-            model=model, batcher=batcher_train, cuda=cuda
+            model=model,
+            batcher=batcher_train,
+            cuda=cuda,
+            lr_scheduler=lr_scheduler,
+            warmup_scheduler=warmup_scheduler,
         )
 
         # ! Report
@@ -132,13 +157,20 @@ if __name__ == "__main__":
 
         metrics_dev = {k + "_dev": v for k, v in metrics_dev.items()}
         metrics_train = {k + "_train": v for k, v in metrics_train.items()}
-        metrics = {**metrics_dev, **metrics_train}
+        metrics_meta = {"lr": model.optimizer.param_groups[0]["lr"]}
+        metrics = {**metrics_dev, **metrics_train, **metrics_meta}
 
-        logger.info(
-            f"EPOCH: {epoch:06d} finished!"
-            f"\n\tTraining | Loss = {metrics['loss_train']} | "
-            f"\n\tValidation | Loss = {metrics['loss_dev']}"
-        )
+        if epoch % EVAL_EVERY_N == 0:
+            logger.info(
+                f"EPOCH: {epoch:06d} finished!"
+                f"\n\tTraining | Loss = {metrics['loss_train']} | "
+                f"\n\tValidation | Loss = {metrics['loss_dev']}"
+            )
+        else:
+            logger.info(
+                f"EPOCH: {epoch:06d} finished!"
+                f"\n\tTraining | Loss = {metrics['loss_train']}"
+            )
 
         wandb.log({**metrics, **{"epoch": epoch}})
 
