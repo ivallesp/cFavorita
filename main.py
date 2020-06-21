@@ -2,6 +2,7 @@ import logging.config
 import os
 import random
 import torch
+import argparse
 
 import numpy as np
 import wandb
@@ -25,11 +26,23 @@ from src.model import build_architecture, run_validation_epoch, run_training_epo
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
+parser = argparse.ArgumentParser(description="Main argument parser")
+
+parser.add_argument(
+    "-c",
+    action="store",
+    dest="config",
+    help="Config filename, to be read from the config directory",
+    default=655321,
+)
+
+args = parser.parse_args()
 
 if __name__ == "__main__":
-    config = get_custom_project_config()
-    alias = config["alias"]
+    config = get_custom_project_config(args.config)
+    logger.info(f"Loading {config} parameters...")
     random_seed = config["random_seed"]
+    alias = args.config
     sample = config["sample"]
     cuda = config["cuda"]
     batch_size = config["batch_size"]
@@ -37,7 +50,8 @@ if __name__ == "__main__":
     learning_rate = config["learning_rate"]
     dropout = config["dropout"]
     n_threads = config["n_threads"]
-    log_config(config)
+    n_epochs = config["n_epochs"]
+    log_config(config, alias)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config)
 
@@ -87,7 +101,7 @@ if __name__ == "__main__":
     logger.info(f"Summary writer instantiated at {summaries_path}")
 
     logger.info(f"Starting the training loop!")
-    for epoch in range(epoch, 10000):  # Epochs loop
+    for epoch in range(epoch, n_epochs):  # Epochs loop
         # ! Validation phase
         logger.info(f"EPOCH: {epoch:06d} | Validation phase started...")
         is_best = False
