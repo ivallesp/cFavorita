@@ -39,6 +39,7 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     config = get_custom_project_config(args.config)
+    config["alias"] = args.config
     logger.info(f"Loading {config} parameters...")
     random_seed = config["random_seed"]
     alias = args.config
