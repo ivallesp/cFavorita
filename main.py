@@ -30,7 +30,7 @@ parser.add_argument(
     "-c",
     action="store",
     dest="config",
-    help="Config filename, to be read from the config directory',
+    help="Config filename, to be read from the config directory",
     default=655321,
 )
 
