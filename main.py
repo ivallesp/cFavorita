@@ -48,6 +48,7 @@ if __name__ == "__main__":
     learning_rate = config["learning_rate"]
     n_threads = config["n_threads"]
     n_epochs = config["n_epochs"]
+    n_history_ts = config["n_history_ts"]
     log_config(config)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config)
@@ -66,6 +67,7 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
+        n_history_ts=n_history_ts,
         n_jobs=n_threads,
     )
     batcher_dev = get_dev_data_loader(
@@ -73,6 +75,7 @@ if __name__ == "__main__":
         df_static=df_master_static,
         batch_size=batch_size,
         forecast_horizon=forecast_horizon,
+        n_history_ts=n_history_ts,
         n_jobs=n_threads,
     )
 
