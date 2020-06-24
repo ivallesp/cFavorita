@@ -26,6 +26,7 @@ from src.model import build_architecture, run_validation_epoch, run_training_epo
 logging.config.fileConfig(get_log_config_filepath(), disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
+parser = argparse.ArgumentParser(description="Main argument parser")
 parser.add_argument(
     "-c",
     action="store",
