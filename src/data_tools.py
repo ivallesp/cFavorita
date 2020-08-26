@@ -759,7 +759,6 @@ def get_custom_data_loader(
         df_static=df_static,
         shuffle_present=False,
         forecast_horizon=forecast_horizon,
-        n_history_ts=n_history_ts,
     )
     base_sampler = SequentialSampler(cfd)
     sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
