@@ -768,7 +768,6 @@ def get_custom_data_loader(
         df_time=df_time[:, :-lag],
         df_static=df_static,
         shuffle_present=False,
-        min_history=min_history,
         forecast_horizon=forecast_horizon,
         n_history_ts=n_history_ts,
     )
