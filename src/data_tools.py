@@ -753,11 +753,19 @@ def get_train_data_loader(
 
 
 def get_custom_data_loader(
-    df_time, df_static, batch_size=128, forecast_horizon=15, n_history_ts=60, n_jobs=4, lag=16*3):
+    df_time,
+    df_static,
+    batch_size=128,
+    forecast_horizon=15,
+    n_history_ts=60,
+    n_jobs=4,
+    min_history=300,
+    lag=16*3):
     cfd = cFDataset(
         df_time=df_time[:, :-lag],
         df_static=df_static,
         shuffle_present=False,
+        min_history=min_history,
         forecast_horizon=forecast_horizon,
     )
     base_sampler = SequentialSampler(cfd)
