@@ -752,6 +752,23 @@ def get_train_data_loader(
     return dataloader
 
 
+def get_custom_data_loader(
+    df_time, df_static, batch_size=128, forecast_horizon=15, n_history_ts=60, n_jobs=4, lag=16*3):
+    cfd = cFDataset(
+        df_time=df_time[:, :-lag],
+        df_static=df_static,
+        shuffle_present=False,
+        forecast_horizon=forecast_horizon,
+        n_history_ts=n_history_ts,
+    )
+    base_sampler = SequentialSampler(cfd)
+    sampler = BatchSampler(sampler=base_sampler, batch_size=batch_size, drop_last=False)
+    dataloader = DataLoader(
+        cfd, num_workers=n_jobs, sampler=sampler, collate_fn=_collate_fn
+    )
+    return dataloader
+
+
 def get_live_data_loader(df_time, df_static, batch_size=128, n_jobs=4):
     cfd = cFDataset(
         df_time=df_time,
