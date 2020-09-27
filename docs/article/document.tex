@@ -29,13 +29,13 @@
 		\title{Demand Forecast: One Model to Forecast Them All}
 		
 		\author[UV]{Iván Vallés-Pérez}
-		\author[UV]{Fernando Mateo}
-		\author[UV]{Joan Vila-Francés}
-		\author[UV]{Antonio J. Serrano-López}
 		\author[UV]{Emilio Soria-Olivas}
+		\author[UV]{Marcelino Martínez-Sober}
+		\author[UV]{Antonio J. Serrano-López\footnote{Corresponding author: antonio.j.serrano@uv.es}}
+		\author[UV]{Juan Gómez-Sánchis}
+
 		
 		\address[UV]{Escola Tècnica Superior d\textsc{\char13}Enginyeria, University of Valencia, Avenida de la Universitat s/n 46100 Burjassot, Valencia, Spain}
-		
 		\begin{abstract}
 			Accurate and fast demand forecast is one of the hot topics in Supply Chain for enabling the precise execution of the corresponding downstream processes (inbound and outbound planning, inventory placement, network planning, etc). We develop three alternatives to tackle the problem of forecasting the customer demand at day/store/item level. Our empirical results show how good performance can be achieved by using a simple \textit{sequence to sequence} architecture with few data preprocessing effort. Additionally, we describe a trick of the trade for improving generalization over time.
 		\end{abstract}
@@ -56,9 +56,13 @@
 	
 	This paper proposes several alternatives to solve the demand forecast problem using deep learning techniques. The generalization power of these algorithms enables solving the problem using a single model for all the different locations and products. 
 	
-	Two alternatives are described in this work: a \textit{sequence-to-sequence} architecture with product and location conditioning and an adapted \textit{transformer} architecture for time series forecasting. The code used in this work has been published in GitHub: \url{https://github.com/ivallesp/cfavorita}
+	Two alternatives are described in this work: a \textit{sequence-to-sequence} architecture with product and location conditioning and an adapted \textit{transformer} architecture for time series forecasting. The code used in this work has been published in GitHub: \url{https://github.com/ivallesp/cFavorita}
 	
-	\section{Data}
+	 Section \ref{sec:data} describes the data set used in this study and the objective to be forecasted. The previous work done in the field of demand forecast and with the \textit{Corporación Favorita} data is described in section \ref{sec:prevwork}. Section \ref{sec:methods} dives deep into the different forecasting methodologies used, together with the different tricks of the trade of each implementation. 
+	Finally, sections \ref{sec:results} and \ref{sec:conclusions} detail the results obtained and summarize the conclusions of this work.
+	
+	
+	\section{Data} \label{sec:data}
 	The \textit{Corporación Favorita Grocery Sales} data set \cite{corporacionfavoritadataset2018} has been used to conduct this study. \textit{Corporación Favorita}, an Ecuadorian company owner of multiple supermarkets across Latin America, released this data set around 2017 as a \textit{Kaggle} competition to challenge the community to forecast their sales. It contains daily sales records for 4,400 unique items, in 54 different Ecuadorian stores from January 1st 2013 to August 15th 2017. Additional data provided along with the number of sales are described below.
 	
 	\begin{itemize}
@@ -70,13 +74,42 @@
 		\item Oil price: price of the oil on each date.
 		\item Holidays and events: dates, locations and types of holidays.
 	\end{itemize}
-
+	
+	As it is usual in the supply chain organizations, the distribution of sales across products is very uneven (see figure \ref{fig:tails}-left where the top 10\% of the products bring the 44\% of the sales). The same characteristic is observed in the case of the stores (see figure \ref{fig:tails}-right where the top 10 stores bring 40\% of the sales). The sales for some products are very sparse: during the test period, the probability of having one or more sells for a given product is 47.6\%, which in practice means that more than half of the days in the time series will have value of zero.
+	
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.48\linewidth]{img/items_tail}
+		\includegraphics[width=0.48\linewidth]{img/stores_tail}
+		\caption{Long tail distributions for items (left) and stores (right). Y axes represent total sells across all the history (around 5 years).}
+		\label{fig:tails}
+	\end{figure}
+	
+	 As it can be noticed in figure \ref{fig:timeseries}, the total sales show clear year on year trends as well as a very remarkable weekly seasonality. There is also a peak of sales at the end of each year
+	 
+	 	\begin{figure}
+	 	\centering
+	 	\includegraphics[width=1\textwidth]{img/timeseries}
+	 	\caption{Daily total sales for the 5 years included in the data.}
+	 	\label{fig:timeseries}
+	 \end{figure}
+	
+	
 	The data set does not contain records for items in days when there were zero unit sales. It also lacks information about the available inventory. These two facts together make the forecast effort more complicated, given that when there are zero sales of a given product in a store at a given date, it can be either because there was not available inventory, or because there was inventory but not demand (or the two of them at the same time),
 	
-	The quantity being forecasted is the number of sales. That will have an important implication in the demand estimation: the demand estimated by the machine learning model will be bounded by the inventory such that the estimation will be the $min(demand(i,s,d), inventory(i,s,d))$ (where $i$, $s$ and $d$ are the inventory, the store and the date). That is not the ideal demand forecast setting, but as the objective of this study is to build the forecast model, it is out of the scope of this paper to deal with that inconvenience.
+	Estimating the actual demand of a retailer is not a straightforward task \cite{Deep2019}. In our case, the quantity being forecasted is the number of sales. That will have an important implication in the demand estimation: the number of sales represent the demand as long as there exists available inventory. Hence, the quantity estimated by the machine learning model will be the demand bounded by the inventory $min(demand(i,s,d), inventory(i,s,d))$ (where $i$, $s$ and $d$ are the inventory, the store and the date). That is not the ideal demand forecast setting, and there are techniques to correct the demand in these cases (e.g. \cite{Bell2000}. However as the objective of this study is to build the forecast model, it is out of the scope of this paper to deal with that inconvenience.
 	
-	\section{Methods}
-	The size of the data set chosen (around $4\cdot10^8$ data points) enables the use of Deep Learning models. Two different neural architectures have been designed: a \textit{seq2seq} model, and a \textit{transformer} model.
+	%TODO: Add chart and numbers to show sparsity
+		
+	\section{Previous work}	\label{sec:prevwork}
+	We have found several works applying deep learning techniques for demand forecast in the supply chain environment. \cite{Kilimci2019} use several \textit{multi-layer perceptrons} (MLP) to build a unified forecast and compare it with more classical techniques. \cite{Talupula2018} compares different deep learning architectures (\textit{CNN}, \textit{LSTM} and \textit{MLP}) performance over an outbound demand forecast task, using data from a retailer. \cite{Helmini2019} compares a deep learning model based on LSTMs with peephole connections with more classical approaches using tree-based models. 
+	
+	However, we only found a few reports using this data set for benchmarking.  	In \cite{kechyn2018}, the authors used the \textit{WaveNet} \cite{vanderoord2016} architecture to build an autoregressive forecast. They achieved the 2nd position in the Kaggle competition that published the \textit{Corporación Favorita} data. The authors only show some charts summarizing their results, pointing to Root Mean Squared Weighted Logarithmic Errors (RMSWLE) of around 0.578. However, they don't specify the period of time used to measure the errors. \cite{Steves2018} used multiple classical techniques (historical average, ARIMA/SARIMA, Snaive and exponential smoothing) to forecast the daily sales. These techniques do not consider multiple sale points and products at the same time. They reach a minimum RMSWLE of 0.555. These solutions achieve competitive results, however, require training one model per item and store (around 238,000 models), which is not a scalable approach for a production environment.
+
+	Other studies using the same data set have been found  \cite{Wang2020, Shaikhha2020, Schleich2019, Lim2019, Curtin2020, Malik2019, Kuleshov2018, Khamis2020}. Although some of them may be interesting for the supply chain goals, they deviate from our demand/sales forecast goal.
+	
+	\section{Methods} \label{sec:methods}
+	The size of the data set chosen (around $4\cdot10^8$ samples) enables the use of Deep Learning models. Two different neural architectures have been designed: a \textit{seq2seq} model, and a \textit{transformer} model.
 	
 	\subsection{Seq2Seq}  % Cite Sutskever 2014
 	A \textit{sequence-to-sequence} architecture (abbreviated as \textit{seq2seq}) \cite{sutskever2014} is a model that is trained to map an input sequence to an output sequence, without any length restriction in both sides (input and output sequences can be of different length). This architecture contains two main blocks: one encoder and one decoder. The encoder consists of a recurrent neural network which processes the input sequence, one sample at a time, condensing all the relevant input sequence information into a fixed length \textit{context vector}. This vector is usually the last hidden state of the encoder $\mathbf{h_t}$ \cite{kamath2019}. The decoder, also consisting of a recurrent neural network, generates the output sequence conditioned to the \textit{context vector}. In one of these architectures, both modules are trained together to minimize an error term over the output.
@@ -84,7 +117,7 @@
 	\begin{figure}[h!]
 		\centering
 		\includegraphics[width=1\linewidth]{img/s2s}
-		\caption{\textit{Seq2seq} architecture diagram. The left grey box shows the encoder, which takes the historical actual sales $y_i$ as input as well as other time-dependent features (i.e. oil price, holidays and events, transactions and promotions), and returns a the hidden vector of the last recurrent module as output (aka \textit{context vector}). The middle of the figure shows the context conditioning module, which receives the \textit{context vector} from the encoder module and augments it with static data (i.e. the item embedding and additional item related features, and the store embedding and additional store related features). Finally, in the right, the decoder module receives as initial state the conditioned context vector and provides the first recurrent cell with a \textit{go symbol} (constant input indicating the input of the decoded sequence). The decoder generates the sequence prediction in an auto-regressive way.}
+		\caption{\textit{Seq2seq} architecture diagram. The left box shows the encoder, which takes the historical actual sales $y_i$ as input as well as other exogenous time-dependent features (i.e. oil price, holidays and events, transactions and promotions) denoted by $x_i$, and returns a the hidden vector $h_t$ of the last recurrent module as output (aka \textit{context vector}). The middle of the figure shows the context conditioning module, which receives the \textit{context vector} $h_t$ from the encoder module and augments it with static data $\hat{x}$ (i.e. the item embedding and additional item related features, and the store embedding and additional store related features) producing a conditioned context vector $\hat{h}_t$. Finally, in the right, the decoder module receives as initial state the conditioned context vector and provides the first recurrent cell with a \textit{go symbol} (constant input indicating the input of the decoded sequence). The decoder generates the sequence prediction in an auto-regressive way.}
 		\label{fig:s2s}
 	\end{figure}
 	
@@ -122,67 +155,94 @@
     \begin{figure}[h!]
     	\centering
     	\includegraphics[width=0.7\linewidth]{img/transformer}
-    	\caption{Transformer architecture used to perform time series forecasting. This architecture is a modification of the original transformer in which the \textit{softmax} operation of the output has been removed and the inputs embeddings have been used only for the categorical variables. In the diagram, the $||$ symbol stands for the concatenation operation.}
+    	\caption{Transformer architecture used to perform time series forecasting. This architecture is a modification of the original transformer in which the \textit{softmax} operation of the output has been removed and the inputs embeddings have been used only for the categorical variables. In the diagram, the $||$ symbol stands for the concatenation operation, and similarly as in \cite{vaswani2017}, $N_X$ represents the number of repetitions of the encoder and decoder blocks.}
     	\label{fig:transformer}
     \end{figure}
     
     
-	\section{Experimental setup and results}
-	The data set provided has intentionally been minimally preprocessed as one of the goals of the current study is to provide a simple and flexible solution to the demand forecast problem. The most important transformation consisted of filling the zero sales records, as the data set was provided without them. The variables have been normalized by centering and scaling them. The target variable has been normalized using a logarithmic transformation, as was suggested by the authors of the data set in the \textit{Kaggle} competition \cite{corporacionfavoritadataset2018}. The ID variables corresponding to the store and the item have been used as an input to an embedding lookup layer to give the model the opportunity to learn store or item related information.
+	\section{Experimental setup and results} \label{sec:results}
+	The data set provided has intentionally been minimally pre-processed as one of the goals of the current study is to provide a simple and flexible solution to the demand forecast problem. The most important transformation consisted of filling the zero sales records, as the data set was provided without them. The variables have been normalized by centering and scaling them. The target variable has been normalized using a logarithmic transformation, as was suggested by the authors of the data set in the \textit{Kaggle} competition \cite{corporacionfavoritadataset2018}. The ID variables corresponding to the store and the item have been used as an input to an embedding lookup layer to give the model the opportunity to learn store or item related information.
 	
-	The model has been trained using daily data from January 1st 2013 to May 27th 2017, to produce daily forecasts of the next 16 days. Data from  June 13th 2017 to June 28th 2017 have been used for validation purposes and the next 3 16-days time spans (June 29th to July 14th, July 15th to July 30th and July 31st to August 15th, referred subsequently as period 1, 2 and 3 respectively) have been used to test the performance of the algorithms.
+	The model has been trained using daily data from January 1st 2013 to May 27th 2017, to produce daily forecasts of the next 16 days\footnote{this is not an arbitrary decision, we chose 16 days because that was the requirement in the kaggle competition. That choice would make sense for bi-monthly forecast publications, as it would be applicable for months with 28, 29, 30 and 31 days}. Data from  June 13th 2017 to June 28th 2017 have been used for validation purposes and the next 3 16-days time spans (June 29th to July 14th, July 15th to July 30th and July 31st to August 15th, referred subsequently as period 1, 2 and 3 respectively) have been used to test the performance of the algorithms.
 	
 	At training time and with the aim of improving generalization over different periods of time, each \textit{minibatch} has been constructed so that the maximum time step (the most recent one)  is drawn randomly from the time line. This trick allows the algorithm to learn a model that generalizes over different periods of time, preventing it to overfit to a single time span. The random max time step has been constrained not to lay before October 29th 2013, to assure that the model has at least 300 days of history to learn from. 
 	
-	In the \textit{seq2seq} model all the history (from January 1st 2013) has been used as input.  In the \textit{transformer} model, given the quadratic computational complexity dependence on the length of the input sequence, the history had to be shortened to 200 time steps. In the spirit of fair comparison, an alternative seq2seq version (referred subsequently as \textit{seq2seq trimmed}) has been trained using the 200 most recent time steps in every batch. To facilitate the interpretation of the results, two baselines have been included: \textit{random} and \textit{average}. The first one consists of measuring the accuracy of a naive prediction built by randomly permuting the target variable. The second one consists of predicting the average of the target variable for all the instances. 
+	In the \textit{seq2seq} model all the history (from January 1st 2013) has been used as input.  In the \textit{transformer} model, given the quadratic computational complexity dependence on the length of the input sequence, the history had to be shortened to 200 days. In the spirit of fair comparison, an alternative seq2seq version (referred subsequently as \textit{seq2seq trimmed}) has been trained using the 200 most recent time steps in every batch. To facilitate the interpretation of the results, two baselines have been included: \textit{random} and \textit{average}. The first one consists of measuring the accuracy of a naive prediction built by randomly permuting the target variable. The second one consists of predicting the average of the target variable for all the instances. 
 	
-	The results have been measured using the \textit{Root Mean Squared Logarithmic Error} (RMSLE). The logarithmic component of the error metric was introduced because different products at different shops have arbitrarily different demand levels. The usage of the logarithm normalizes the unit sales distribution and makes the whole problem easier to measure. The results obtained are summarized in the table \ref{tab:results}. More details about the model performance are included in the appendix.
+	The results have been measured using the \textit{Root Mean Squared Logarithmic Error} (\textit{RMSLE}, defined in equation \ref{eq:rmsle}), \textit{Root Mean Squared Weighted Logarithmic Error} (\textit{RMSWLE}, defined in equation \ref{eq:rmswle}, where the perishable items are given a weight of $1.25$, and $1.0$ to the rest),  and \textit{Mean Absolute Logarithmic Error} (\textit{MALE}, defined in equation \ref{eq:male}). In the previous equations, $\hat{y}$ represent the predicted sales,  $y$ represent the actual sales and $N$ is the total number of samples. The logarithmic component of the error metrics was introduced because different products at different shops have arbitrarily different demand levels. The usage of the logarithm normalizes the unit sales distribution and makes the whole problem easier to measure. The \textit{RMSWLE} error metric has been introduced to facilitate comparison and benchmarking with future studies, given that this was the metric used in the \textit{Kaggle} competition. The results obtained are summarized in the table \ref{tab:results}. Additionally, a daily deep dive is provided in the figure \ref{fig:dailyerror}. More details about the model performance are included in the appendix, including error distribution across different stores and products, and a set of figures showing how the time series predicted match the actual values.
 	
-	As it can be noticed in the results, the three models perform similarly. However, the \textit{seq2seq} models were much faster at train and inference time. This is due to the quadratic complexity dependence on the sequence length in the \textit{transformer} architecture; in \textit{seq2seq} it is linear. The simplest model (\textit{seq2seq trimmed}) was the fastest of the three alternatives, with no noticeable decrease in performance.
+	\begin{equation} \label{eq:rmsle}	
+	RMSLE = \sqrt{ \frac{1}{N} \displaystyle\sum_{i=1}^N  \left(\log(\hat{y}_i + 1) - \log(y_i +1)  \right)^2  }
+	\end{equation}
+	
+	\begin{equation} \label{eq:rmswle}	
+	RMSWLE = \sqrt{ \frac{\displaystyle\sum_{i=1}^n w_i \left( \log(\hat{y}_i + 1) - \log(y_i +1)  \right)^2  }{\displaystyle\sum_{i=1}^n w_i}}
+	\end{equation}
+	
+	\begin{equation} \label{eq:male}	
+	MALE = \sqrt{ \frac{1}{N} \displaystyle\sum_{i=1}^N  \left|\log(\hat{y}_i + 1) - \log(y_i +1)  \right|  }
+	\end{equation}
+	
+	From the table we can conclude that the three models perform similarly. However, the daily figures show that the transformer error has more variability around the second and fourth day of forecast. This may be due to the fact that the model has been trained using \textit{teacher forcing} \cite{williams1989, goyal2016}, and at inference time, an auto-regressive strategy has been used to compute the forecasted sales. This may cause distribution shifts that impact the quality of the forecast.  Besides, the \textit{seq2seq} models were much faster at training and inference time. This is due to the quadratic complexity dependence on the sequence length in the \textit{transformer} architecture; in \textit{seq2seq} it is linear. The simplest model (\textit{seq2seq trimmed}) was the fastest of the three alternatives, with no noticeable decrease in performance, either in the general picture or in the daily figures.
 
 	\begin{table}[!h]
-		\caption{Results of the models trained for three different time spans. All the models have been trained five times to reduce the effect of different random initializations.}
+		\small
+		\caption{Results of the models trained for three different time spans. All the models have been trained five times to reduce the effect of different random initialization. The errors are represented as mean $\pm$ standard deviation, across the five runs.}
 		\label{tab:results}
 		\centering
-	\begin{tabular}{llll}
+	\begin{tabular}{lllll}
 		\hline
-		Period & Model & RMSLE ($\mu$) & RMSLE ($\sigma$) \\
+		Period & Model & RMSLE & RMSWLE & MALE\\
 		\hline
-		1&Seq2Seq & 0.5380 & 0.0018 \\
+		1&Seq2Seq & $ 0.538 \pm 0.0016 $  &  $ 0.5376 \pm 0.0016 $  &  $ 0.345 \pm 0.0024 $ \\
 		
-		&Seq2Seq trimmed & 0.5382 & 0.0009 \\
+		&Seq2Seq trimmed & $ 0.5381 \pm 0.0008 $  &  $ 0.5377 \pm 0.0008 $  &  $ 0.3442 \pm 0.0008 $\\
 		
-		&Transformer & 0.5439 & 0.0026 \\
+		&Transformer & $ 0.5439 \pm 0.0024 $  &  $ 0.5436 \pm 0.0023 $  &  $ 0.3386 \pm 0.001 $\\
 		
-		&Baseline: random & 1.4741 & 0.0004 \\
+		&Baseline: random & $ 1.474 \pm 0.0003 $  &  $ 1.4795 \pm 0.0003 $  &  $ 1.0691 \pm 0.0002 $ \\
 		
-		&Baseline: average & 1.0422 & - \\
+		&Baseline: average & $ 1.0422$  &  $ 1.05$  &  $ 0.8744$\\
 
 		\hline
-		2&Seq2Seq & 0.5431 & 0.0015 \\
+		2&Seq2Seq & $ 0.5431 \pm 0.0014 $  &  $ 0.5421 \pm 0.0013 $  &  $ 0.3475 \pm 0.0012 $ \\
 		
-		&Seq2Seq trimmed & 0.5412 & 0.0021 \\
+		&Seq2Seq trimmed & $ 0.5413 \pm 0.0019 $  &  $ 0.5403 \pm 0.0018 $  &  $ 0.3444 \pm 0.0012 $ \\
 		
-		&Transformer & 0.5494 & 0.0023 \\
+		&Transformer & $ 0.5495 \pm 0.0021 $  &  $ 0.5486 \pm 0.0021 $  &  $ 0.3415 \pm 0.0012 $\\
 		
-		&Baseline: random & 1.4651 & 0.0006 \\
+		&Baseline: random & $ 1.4649 \pm 0.0002 $  &  $ 1.4702 \pm 0.0002 $  &  $ 1.0577 \pm 0.0003 $ \\
 		
-		&Baseline: average & 1.0358 & - \\
+		&Baseline: average & $ 1.0358$  &  $ 1.0433$  &  $ 0.8655$\\
 		\hline
-		3&Seq2Seq & 0.5440 & 0.0023 \\
+		3&Seq2Seq & $ 0.544 \pm 0.0021 $  &  $ 0.5431 \pm 0.0021 $  &  $ 0.3502 \pm 0.0028 $ \\
 
-		&Seq2Seq trimmed & 0.5423 & 0.0017 \\
+		&Seq2Seq trimmed & $ 0.5423 \pm 0.0015 $  &  $ 0.5414 \pm 0.0016 $  &  $ 0.3481 \pm 0.0017 $ \\
 
-		&Transformer & 0.5414 & 0.0016 \\
+		&Transformer & $ 0.5414 \pm 0.0015 $  &  $ 0.5407 \pm 0.0014 $  &  $ 0.3366 \pm 0.0012 $  \\
 
-		&Baseline: random & 1.4555 & 0.0005 \\
+		&Baseline: random & $ 1.4555 \pm 0.0002 $  &  $ 1.4606 \pm 0.0002 $  &  $ 1.0517 \pm 0.0002 $ \\
 
-		&Baseline: average & 1.0290 & - \\
+		&Baseline: average & $ 1.029$  &  $ 1.0363 $  &  $ 0.8616$ \\
 		\hline
 	\end{tabular}
     \end{table}
-	 
-	\section{Conclusions and empirical results}
+
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\linewidth]{img/lag3_daily_error}
+	\includegraphics[width=1\linewidth]{img/lag2_daily_error}
+	\includegraphics[width=1\linewidth]{img/lag1_daily_error}
+	\caption{Daily \textit{RMSLE} for the three test periods (in chronological order, from top to bottom). The error bars shown in the figures represent the standard deviation of the three runs }
+	\label{fig:dailyerror}
+\end{figure}
+
+
+
+	%TODO: Think about a way to show HOW GOOD are the results
+	%TODO: Qualitative analysis: Show some time series (top products)
+	\section{Conclusions and empirical results} \label{sec:conclusions}
 	We have empirically proved that it is possible to build a demand forecast solution for different products, at different points of sale and at different points in time using a single deep learning model. Our \textit{seq2seq trimmed} model achieved the best performance at the lowest computational cost. For that reason, we recommend its usage for this type of use cases.
 	
 	The fact that by reducing the history of the sequences in the \textit{seq2seq} architecture does not impact the performance of the algorithm suggests that models with even shorter sequence length could be trained to explore more efficient solutions. These experiments may enable \textit{transformers} to train faster than \textit{seq2seq} models, as they can be trained time-wise in parallel.  
@@ -196,7 +256,7 @@
 	
 	\newpage
 	\section*{Appendix}
-	In this appendix, a more detailed analysis of the results is included. Figure \ref{fig:performance_evolution} shows the how the errors evolve in every epoch. Figures \ref{fig:stores_performance} and \ref{fig:items_performance} decompose the error at store and item level, respectively, in order to show in detail how the errors vary along these dimensions.
+	In this appendix, a more detailed analysis of the results is included. Figure \ref{fig:performance_evolution} shows the how the errors evolve in every epoch. Figures \ref{fig:stores_performance} and \ref{fig:items_performance} decompose the error at store and item level, respectively, in order to show in detail how the errors vary along these dimensions. Finally, figures \ref{fig:ts_log} and \ref{fig:ts_lin} show examples of actual and forecasted time-series in log and linear scales (respectively).
 	
 	\begin{figure}[h!]
 		\centering
@@ -225,5 +285,28 @@
 		\label{fig:items_performance}
 	\end{figure}
 	
+	
+	
+	\begin{figure}
+		\centering
+		\includegraphics[width=1\linewidth]{img/sample_0_log}
+		\includegraphics[width=1\linewidth]{img/sample_1_log}
+		\includegraphics[width=1\linewidth]{img/sample_2_log}
+		\includegraphics[width=1\linewidth]{img/sample_3_log}
+		\includegraphics[width=1\linewidth]{img/sample_4_log}
+	\caption{Actual and forecasted sales in log space for the five cherry-picked examples of store-item combinations. The three test periods have been concatenated along the X axis. The error bars show the standard deviation across the 5 runs.}
+		\label{fig:ts_log}
+	\end{figure}
+
+	\begin{figure}
+	\centering
+	\includegraphics[width=1\linewidth]{img/sample_0_lin}
+	\includegraphics[width=1\linewidth]{img/sample_1_lin}
+	\includegraphics[width=1\linewidth]{img/sample_2_lin}
+	\includegraphics[width=1\linewidth]{img/sample_3_lin}
+	\includegraphics[width=1\linewidth]{img/sample_4_lin}
+	\caption{Actual and forecasted sales in linear space for the five cherry-picked examples of store-item combinations. The three test periods have been concatenated along the X axis. The error bars show the standard deviation across the 5 runs. The forecasted values  have been rounded to the nearest integer.}
+	\label{fig:ts_lin}
+\end{figure}
 	
 \end{document}
