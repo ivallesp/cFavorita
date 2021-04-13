@@ -10,8 +10,6 @@ data
 # Virtual environment
 .venv
 
-# Analysis folders
-Notebooks
 
 # Garbage
 __pycache__
