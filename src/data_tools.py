@@ -743,7 +743,7 @@ def get_train_data_loader(
     cfd = cFDataset(
         df_time=df_time[:, :-lag],
         df_static=df_static,
-        shuffle_present=True,
+        shuffle_present=False,
         forecast_horizon=forecast_horizon,
         n_history_ts=n_history_ts,
     )
