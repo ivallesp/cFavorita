@@ -53,7 +53,7 @@ if __name__ == "__main__":
     n_history_ts = config["n_history_ts"]
     log_config(config)
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
-    wandb.config.update(config)
+    wandb.config.update(config, allow_val_change=True)
 
     # Set random seed
     torch.manual_seed(random_seed)
