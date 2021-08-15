@@ -168,7 +168,7 @@ class Encoder(nn.Module):
         emb_feats = []
         for i, cat_feat_name in enumerate(cat_time_names):
             emb_feats += [self.embs[cat_feat_name](x_cat_time[:, :, i].long())]
-        time_features = torch.cat([x_num_time] + emb_feats, -1).squeeze()
+        time_features = torch.cat([x_num_time] + emb_feats, -1)
         _, state = self.rnn_encoder(time_features)
         return state
 

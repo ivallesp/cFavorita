@@ -3,7 +3,7 @@ import os
 import random
 import torch
 import argparse
-
+from setproctitle import setproctitle
 import numpy as np
 import wandb
 from tensorboardX import SummaryWriter
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     n_epochs = config["n_epochs"]
     n_history_ts = config["n_history_ts"]
     log_config(config)
+    setproctitle("python")
     wandb.init(project="cFavorita", config=config, id=alias, resume=alias)
     wandb.config.update(config, allow_val_change=True)
 
