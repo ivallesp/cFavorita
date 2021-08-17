@@ -26,9 +26,24 @@ from src.data_tools import (
 from src.general_utilities import get_custom_project_config, log_config
 from src.model import build_architecture, run_validation_epoch, run_training_epoch
 
-aliases = ['s2s_trim_655321_notrick', 's2s_trim_655322_notrick', 
-           's2s_trim_655323_notrick', 's2s_trim_655324_notrick', 
-           's2s_trim_655325_notrick']
+aliases = ['s2s_trim_655321_shorter100', 's2s_trim_655322_shorter100', 
+           's2s_trim_655323_shorter100b', 's2s_trim_655324_shorter100b', 
+           's2s_trim_655325_shorter100b']
+
+aliases += ['s2s_trim_655321_shorter10c', 's2s_trim_655322_shorter10b',
+           's2s_trim_655323_shorter10', 's2s_trim_655324_shorter10', 
+           's2s_trim_655325_shorter10']
+
+aliases += ['s2s_trim_655321_shorter1', 's2s_trim_655322_shorter1',
+          's2s_trim_655323_shorter1', 's2s_trim_655324_shorter1',
+          's2s_trim_655325_shorter1']
+
+
+# Try loading aliases config
+for alias in aliases:
+    get_custom_project_config(alias)
+    model_path=os.path.join("models", alias)
+    assert os.path.exists(model_path), model_path
 
 LAG = 3
 
