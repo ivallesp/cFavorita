@@ -23,12 +23,12 @@
      guidetolerance="10"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:window-width="3377"
-     inkscape:window-height="1281"
+     inkscape:window-width="1860"
+     inkscape:window-height="1016"
      id="namedview205"
      showgrid="false"
      inkscape:zoom="6.616967"
-     inkscape:cx="199.49369"
+     inkscape:cx="86.526525"
      inkscape:cy="56.850683"
      inkscape:window-x="60"
      inkscape:window-y="27"
@@ -416,7 +416,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -573,13 +573,13 @@
            id="tspan3593-5">x</tspan></text>
       <text
          xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:1.41111px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:1.41111004px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
          x="55.690086"
          y="89.599968"
          id="text3557-0-3-4"><tspan
            id="tspan3639"
            x="55.690086"
-           y="89.599968">t-m+1</tspan></text>
+           y="89.599968">t-m+2</tspan></text>
     </g>
     <g
        transform="translate(-16.481876,-62.739056)"
@@ -916,11 +916,11 @@
          id="text3557-0-3-4-2"
          y="89.599968"
          x="55.690086"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:1.41111px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:1.41111004px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
          xml:space="preserve"><tspan
            y="89.599968"
            x="55.690086"
-           id="tspan3639-1">t-m+1</tspan></text>
+           id="tspan3639-1">t-m+2</tspan></text>
     </g>
     <g
        id="g3673-1-6"
