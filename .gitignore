@@ -44,3 +44,6 @@ wandb/*
 
 # Credentials
 docker/credentials.env
+
+# Image conversions
+*-eps-converted-to.pdf
