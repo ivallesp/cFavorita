@@ -268,30 +268,32 @@ From Figure \ref{fig:stores_items_performance}, we observe that the performance 
 	From Table \ref{tab:results}, we can conclude that the three models perform similarly. However, the daily figures show that the transformer error has more variability around the second and fourth day of forecast. This may be due to the fact that the model has been trained using \textit{teacher forcing} (\cite{williams1989, goyal2016}), and at inference time, an auto-regressive strategy has been used to compute the forecasted sales. This may cause distribution shifts that impact the quality of the forecast.  Besides, the \textit{seq2seq} models were much faster at training and inference time. This is due to the quadratic complexity dependence on the sequence length in the \textit{transformer} architecture; in \textit{seq2seq} it is linear. The simplest model (\textit{seq2seq trimmed}) was the fastest of the three alternatives, with no noticeable decrease in performance, either in the general picture or in the daily figures.
 
 	\begin{table}[!h]
-		\footnotesize
-		\caption{Results of the models trained for three different time spans. All the models have been trained five times to reduce the effect of different random initialization. The errors are represented as mean $\pm$ standard deviation, across the five runs. We have highlighted the rows corresponding with the models that achieved the lowest RMSLE}
+	\scriptsize
+	\caption{Results of the models trained for three different time spans. All the models have been trained five times to reduce the effect of different random initialization. The errors are represented as mean $\pm$ standard deviation, across the five runs. We have highlighted the rows corresponding with the models that achieved the lowest RMSLE. At the bottom of the table we have included two benchmark metrics extracted from the previous works, although the authors do not clearly specify the period of time used to measure the results, they should be used only as a reference.}
 		\label{tab:results}
 		\centering
-	\begin{tabular}{lllll}
-		\hline
-		Period & Model             & RMSLE                 & RMSWLE                & MALE                  \\ \hline
-		1      & \textbf{Seq2seq}           & $ \mathbf{0.5380 \pm 0.0016} $  & $ \mathbf{0.5376 \pm 0.0016 }$ & $  \mathbf{0.3450 \pm 0.0024}$  \\
-		       & Seq2seq trimmed   & $ 0.5381 \pm 0.0008 $ & $ 0.5377 \pm 0.0008 $ & $ 0.3442 \pm 0.0008 $ \\
-		       & Transformer       & $ 0.5439 \pm 0.0024 $ & $ 0.5436 \pm 0.0023 $ & $ 0.3386 \pm 0.001 $  \\
-		       & Baseline: random  & $ 1.474 \pm 0.0003 $  & $ 1.4795 \pm 0.0003 $ & $ 1.0691 \pm 0.0002 $ \\
-		       & Baseline: average & $ 1.0422$             & $ 1.05$               & $ 0.8744$             \\ \hline
-		2      & Seq2seq           & $ 0.5431 \pm 0.0014 $ & $ 0.5421 \pm 0.0013 $ & $ 0.3475 \pm 0.0012 $ \\
-		       & \textbf{Seq2seq trimmed }  & $ \mathbf{0.5413 \pm 0.0019} $ & $ 0.\mathbf{5403 \pm 0.0018 }$ & $ \mathbf{0.3444 \pm 0.0012} $ \\
-		       & Transformer       & $ 0.5495 \pm 0.0021 $ & $ 0.5486 \pm 0.0021 $ & $ 0.3415 \pm 0.0012 $ \\
-		       & Baseline: random  & $ 1.4649 \pm 0.0002 $ & $ 1.4702 \pm 0.0002 $ & $ 1.0577 \pm 0.0003 $ \\
-		       & Baseline: average & $ 1.0358$             & $ 1.0433$             & $ 0.8655$             \\ \hline
-		3      & Seq2seq           & $ 0.544 \pm 0.0021 $  & $ 0.5431 \pm 0.0021 $ & $ 0.3502 \pm 0.0028 $ \\
-		       & Seq2seq trimmed   & $ 0.5423 \pm 0.0015 $ & $ 0.5414 \pm 0.0016 $ & $ 0.3481 \pm 0.0017 $ \\
-		       & \textbf{Transformer}       & $ \mathbf{0.5414 \pm 0.0015} $ & $ \mathbf{0.5407 \pm 0.0014} $ & $ \mathbf{0.3366 \pm 0.0012} $ \\
-		       & Baseline: random  & $ 1.4555 \pm 0.0002 $ & $ 1.4606 \pm 0.0002 $ & $ 1.0517 \pm 0.0002 $ \\
-		       & Baseline: average & $ 1.029$              & $ 1.0363 $            & $ 0.8616$             \\ \hline
-	\end{tabular}
-    \end{table}
+		\begin{tabular}{lllll}
+			\hline
+			Period    & Model                     & RMSLE                          & RMSWLE                         & MALE                           \\ \hline
+			1         & \textbf{Seq2seq}          & $ \mathbf{0.5380 \pm 0.0016} $ & $ \mathbf{0.5376 \pm 0.0016 }$ & $  \mathbf{0.3450 \pm 0.0024}$ \\
+			          & Seq2seq trimmed           & $ 0.5381 \pm 0.0008 $          & $ 0.5377 \pm 0.0008 $          & $ 0.3442 \pm 0.0008 $          \\
+			          & Transformer               & $ 0.5439 \pm 0.0024 $          & $ 0.5436 \pm 0.0023 $          & $ 0.3386 \pm 0.001 $           \\
+			          & Baseline: random          & $ 1.474 \pm 0.0003 $           & $ 1.4795 \pm 0.0003 $          & $ 1.0691 \pm 0.0002 $          \\
+			          & Baseline: average         & $ 1.0422$                      & $ 1.05$                        & $ 0.8744$                      \\ \hline
+			2         & Seq2seq                   & $ 0.5431 \pm 0.0014 $          & $ 0.5421 \pm 0.0013 $          & $ 0.3475 \pm 0.0012 $          \\
+			          & \textbf{Seq2seq trimmed } & $ \mathbf{0.5413 \pm 0.0019} $ & $ 0.\mathbf{5403 \pm 0.0018 }$ & $ \mathbf{0.3444 \pm 0.0012} $ \\
+			          & Transformer               & $ 0.5495 \pm 0.0021 $          & $ 0.5486 \pm 0.0021 $          & $ 0.3415 \pm 0.0012 $          \\
+			          & Baseline: random          & $ 1.4649 \pm 0.0002 $          & $ 1.4702 \pm 0.0002 $          & $ 1.0577 \pm 0.0003 $          \\
+			          & Baseline: average         & $ 1.0358$                      & $ 1.0433$                      & $ 0.8655$                      \\ \hline
+			3         & Seq2seq                   & $ 0.544 \pm 0.0021 $           & $ 0.5431 \pm 0.0021 $          & $ 0.3502 \pm 0.0028 $          \\
+			          & Seq2seq trimmed           & $ 0.5423 \pm 0.0015 $          & $ 0.5414 \pm 0.0016 $          & $ 0.3481 \pm 0.0017 $          \\
+			          & \textbf{Transformer}      & $ \mathbf{0.5414 \pm 0.0015} $ & $ \mathbf{0.5407 \pm 0.0014} $ & $ \mathbf{0.3366 \pm 0.0012} $ \\
+			          & Baseline: random          & $ 1.4555 \pm 0.0002 $          & $ 1.4606 \pm 0.0002 $          & $ 1.0517 \pm 0.0002 $          \\
+			          & Baseline: average         & $ 1.029$                       & $ 1.0363 $                     & $ 0.8616$                      \\ \hline
+			Benchmark & \cite{kechyn2018}         & -                              & 0.578                          & -                              \\
+			Benchmark & \cite{Steves2018}         & -                              & 0.555                          & -                              \\ \hline
+		\end{tabular}
+	\end{table}
 
 
 \begin{figure}
